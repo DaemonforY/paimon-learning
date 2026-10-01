@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+# 冒烟测试：在一个全新的 warehouse 里依次运行全部实验，并断言实验记录（notes/）中的关键结论。
+# 用法：./run-all.sh            （默认 Paimon 2.0.0）
+#       PAIMON_VERSION=2.2-SNAPSHOT ./run-all.sh
+# 全部通过时退出码为 0。耗时约 6~8 分钟（实验 3 含流式作业）。
+set -uo pipefail
+cd "$(dirname "$0")"
+source ./lab-common.sh
+
+export WAREHOUSE=${WAREHOUSE:-target/smoke-warehouse}
+LOG=logs/smoke
+rm -rf "$WAREHOUSE" "$LOG"
+mkdir -p "$LOG"
+PASS=0
+FAIL=0
+
+check() {   # check <描述> <日志文件> <grep 正则>
+  if grep -qE -- "$3" "$2"; then PASS=$((PASS + 1)); echo "  ✅ $1"
+  else FAIL=$((FAIL + 1)); echo "  ❌ $1   （在 $2 中未找到：$3）"; fi
+}
+check_not() {   # check_not <描述> <日志文件> <grep 正则>
+  if grep -qE -- "$3" "$2"; then FAIL=$((FAIL + 1)); echo "  ❌ $1   （$2 中不应出现：$3）"
+  else PASS=$((PASS + 1)); echo "  ✅ $1"; fi
+}
+run() {   # run <sql> <日志名>
+  ./run.sh "$1" > "$LOG/$2.log" 2>&1 || echo "  ⚠️  $1 退出码非 0，见 $LOG/$2.log"
+}
+
+echo "Paimon 版本：${PAIMON_VERSION:-2.0.0}　warehouse：$WAREHOUSE"
+build_once
+
+echo "== 实验 1：建表、更新删除、系统表、合并 =="
+run sql/lab01/step1-create-insert.sql lab01-1
+run sql/lab01/step2-update-delete.sql lab01-2
+run sql/lab01/step3-system-tables.sql lab01-3
+run sql/lab01/step4-compact.sql       lab01-4
+check "首次写入 3 个 CommitMessage（3 个有数据的 bucket）" $LOG/lab01-1.log "number of commit messages: 3"
+check "批作业提交标识为 Long.MAX_VALUE"                    $LOG/lab01-1.log "identifier 9223372036854775807 and kind APPEND"
+check "主键表 upsert：订单 1 变为 PAID"                     $LOG/lab01-2.log "\|\s+1 \|\s+101 \|\s+99.90 \|\s+PAID"
+check "append 表保留重复行：4 行"                           $LOG/lab01-2.log "^4 rows in set"
+check "快照 3 物理记录数 8（查询只有 5 行）"                $LOG/lab01-3.log "\|\s+3 \|\s+APPEND \|\s+9223372036854775807 \|\s+8 \|"
+check "合并前全部文件在 level 0（6 个文件）"                $LOG/lab01-3.log "^6 rows in set"
+check "合并时订单 3 的插入与删除抵消：输出 0 个文件"         $LOG/lab01-4.log "inputFiles=2, inputBytes=[0-9]+, outputFiles=0"
+check "合并产生 COMPACT 快照，总记录数降为 5"               $LOG/lab01-4.log "\|\s+4 \|\s+COMPACT \|\s+5 \|\s+-3 \|"
+
+echo "== 实验 2：时间旅行、Tag、增量读取、快照过期 =="
+run sql/lab02/step1-setup.sql       lab02-1
+run sql/lab02/step2-time-travel.sql lab02-2
+run sql/lab02/step3-expire.sql      lab02-3
+check "读不存在的快照报 out of range"                       $LOG/lab02-2.log "EXPECTED ERROR.*snapshotId 99 is out of available snapshotId range \[1, 4\]"
+UUID_LINES=$(grep -c '"uuid"' $LOG/lab02-2.log || true)
+UUID_DISTINCT=$(grep '"uuid"' $LOG/lab02-2.log | sort -u | wc -l | tr -d ' ')
+[ "$UUID_LINES" = "2" ] && [ "$UUID_DISTINCT" = "1" ] && { PASS=$((PASS + 1)); echo "  ✅ Tag 文件与 snapshot-1 的 uuid 相同（Tag 是快照的拷贝）"; } \
+  || { FAIL=$((FAIL + 1)); echo "  ❌ Tag 与 snapshot-1 的 uuid 应相同：共 $UUID_LINES 行，去重后 $UUID_DISTINCT 个"; }
+check "增量读取得到订单 3 的 -D"                            $LOG/lab02-2.log "\|\s+-D \|\s+3 \|"
+check "retain_max < retain_min 报错"                       $LOG/lab02-3.log "EXPECTED ERROR.*retainMax \(2\) must not be less than retainMin \(10\)"
+check "第一次过期只过期 1 个快照"                           $LOG/lab02-3.log "^1$"
+check "第二次过期再过期 2 个快照"                           $LOG/lab02-3.log "^2$"
+check "快照 1 过期后按 id 读不到"                           $LOG/lab02-3.log "EXPECTED ERROR.*snapshotId 1 is out of available snapshotId range \[4, 4\]"
+check "Tag v1 仍可读出快照 1 的 5 行（含订单 3）"           $LOG/lab02-3.log "\|\s+3 \|\s+103 \|\s+250.00 \|\s+CREATED"
+DEL_TAG_FILES=$(sed -n '/删除 Tag 后：数据文件/,/manifest 目录/p' $LOG/lab02-3.log | grep -c '\.parquet$' || true)
+[ "$DEL_TAG_FILES" = "2" ] && { PASS=$((PASS + 1)); echo "  ✅ 删除 Tag 后只剩快照 4 的 2 个数据文件"; } \
+  || { FAIL=$((FAIL + 1)); echo "  ❌ 删除 Tag 后应剩 2 个数据文件，实际 $DEL_TAG_FILES"; }
+
+echo "== 实验 3A：changelog-producer none vs lookup（含流式作业，约 1.5 分钟） =="
+./lab03-a.sh > $LOG/lab03-a.log 2>&1
+cp logs/lab03-a-*.log $LOG/
+check "none 表执行计划含 ChangelogNormalize"                $LOG/lab03-a-read-none.log "ChangelogNormalize\(key=\[order_id\]\)"
+check_not "lookup 表执行计划不含 ChangelogNormalize"         $LOG/lab03-a-read-lookup.log "ChangelogNormalize"
+for t in none lookup; do
+  check "$t 表流读输出 -U/+U"                                $LOG/lab03-a-read-$t.log "\-U\[1, CREATED, 99.90\]"
+  check "$t 表流读输出 -D"                                   $LOG/lab03-a-read-$t.log "\-D\[2, CREATED, 15.00\]"
+done
+check "lookup 表 COMPACT 快照带 changelog"                   $LOG/lab03-a-write.log "\|\s+[0-9]+ \|\s+COMPACT \|\s+[-0-9]+ \|\s+2 \|"
+
+echo "== 实验 3B：consumer-id（约 2.5 分钟） =="
+./lab03-b.sh > $LOG/lab03-b.log 2>&1
+cp logs/lab03-b*.log $LOG/
+check "consumer 记录 nextSnapshot = 3"                      $LOG/lab03-b2-write-expire.log '"nextSnapshot" : 3'
+check "无 consumer 的表过期后只剩快照 8"                     $LOG/lab03-b2-write-expire.log "^7$"
+check "同 consumer-id 重启：从断点续读到订单 1 的 +U"        $LOG/lab03-b3-resume.log "\+U\[1, PAID\]"
+check "同 consumer-id 重启：读到订单 2 的 -D"               $LOG/lab03-b3-resume.log "\-D\[2, CREATED\]"
+check_not "同 consumer-id 重启：不重复全量（无 +I[1, CREATED]）" $LOG/lab03-b3-resume.log "\+I\[1, CREATED\]"
+check "对照组从过期位置启动：只读到 +I[4]"                  $LOG/lab03-b4-old-position.log "\+I\[4, CREATED\]"
+check_not "对照组静默丢失订单 1 的更新"                      $LOG/lab03-b4-old-position.log "\+U\[1, PAID\]"
+check_not "对照组静默丢失订单 2 的删除，且不报错"            $LOG/lab03-b4-old-position.log "\-D\[2, CREATED\]|Exception"
+
+echo "== 实验 4：写入链路（非调试模式运行） =="
+JAVA_PROPS="-Ddebug=true" run sql/lab04/trace-write.sql lab04
+check "3 行写入合并为 2 条记录"                              $LOG/lab04.log "\|\s+1 \|\s+APPEND \|\s+2 \|"
+check "订单 1 保留最后写入的 C"                              $LOG/lab04.log "\|\s+1 \|\s+C \|"
+
+echo
+echo "通过 $PASS 项，失败 $FAIL 项。日志在 $LOG/"
+[ "$FAIL" = "0" ]

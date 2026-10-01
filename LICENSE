@@ -1,0 +1,31 @@
+本仓库采用双许可：
+
+1. 文档（仓库中所有 .md 文件，包括教程、学习计划、实验记录）
+   采用 知识共享 署名-非商业性使用-相同方式共享 4.0 国际 许可协议（CC BY-NC-SA 4.0）。
+   - 可以自由转载、修改，但须署名并附原文链接；
+   - 不得用于商业目的；
+   - 基于本文档修改后的作品须以相同协议发布。
+   协议全文：https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode.zh-hans
+
+2. 代码（labs/ 目录下的 Java 代码、SQL、Shell 脚本、Maven 配置等）
+   采用 Apache License 2.0，全文见 labs/LICENSE。
+
+本仓库与 Apache 软件基金会（ASF）及 Apache Paimon 项目无隶属关系，不代表官方观点。
+"Apache Paimon"、"Paimon" 及其标识是 Apache 软件基金会的商标。
+教程中引用的 Apache Paimon 源码片段遵循 Apache License 2.0。
+
+Copyright (c) 2026 Yongbin Miao (DaemonforY)
+
+----------------------------------------------------------------------
+
+This repository is dual-licensed:
+
+1. Documentation (all .md files) is licensed under the Creative Commons
+   Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0).
+   https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode
+
+2. Code under labs/ is licensed under the Apache License, Version 2.0 (see labs/LICENSE).
+
+This project is not affiliated with or endorsed by the Apache Software Foundation
+or the Apache Paimon project. "Apache Paimon" and "Paimon" are trademarks of the
+Apache Software Foundation.

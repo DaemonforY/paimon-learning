@@ -1,0 +1,13 @@
+# 私有资料：课程运营规划与内容样稿，不随仓库公开
+课程规划/
+
+# 实验运行产物
+labs/warehouse/
+labs/target/
+labs/logs/
+
+# IDE / 系统
+.idea/
+*.iml
+.vscode/
+.DS_Store
