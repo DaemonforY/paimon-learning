@@ -44,13 +44,10 @@
             <artifactId>flink-clients</artifactId>
             <version>${flink.version}</version>
         </dependency>
-        <!-- Paimon 的 FLIP-27 Source（FileStoreSourceReader）依赖它，Flink 发行版里自带 -->
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-connector-base</artifactId>
-            <version>${flink.version}</version>
-        </dependency>
-        <!-- FileStoreSourceSplitReader 返回 BulkFormat.RecordIterator，来自这里，Flink 发行版里也自带 -->
+        <!-- Paimon 读取端需要：FileStoreSourceReader 继承 connector-base 的 SingleThreadMultiplexSourceReaderBase，
+             FileStoreSourceSplitReader 返回 BulkFormat.RecordIterator。
+             flink-connector-files 已经把 flink-connector-base 的类 shade 进来了，所以只需要这一个（实验 5 验证）。
+             Flink 发行版 lib/ 里自带。 -->
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-connector-files</artifactId>

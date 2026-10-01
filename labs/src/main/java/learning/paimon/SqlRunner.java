@@ -76,15 +76,16 @@ public class SqlRunner {
             tEnv.getConfig().set("execution.checkpointing.interval", "2s");
         }
 
-        String content = substituteVariables(
-                new String(Files.readAllBytes(Paths.get(sqlFile)), StandardCharsets.UTF_8));
+        // 打印时显示原始文本（保留 ${warehouse} 等变量，截图里不会出现本机绝对路径），执行时才替换变量
+        String content = new String(Files.readAllBytes(Paths.get(sqlFile)), StandardCharsets.UTF_8);
         List<String> statements = splitStatements(content);
         boolean expectError = false;
         for (int i = 0; i < statements.size(); i++) {
-            String stmt = statements.get(i);
+            String raw = statements.get(i);
+            String stmt = substituteVariables(raw);
             if (streaming && i == statements.size() - 1
                     && stmt.toUpperCase(Locale.ROOT).startsWith("SELECT")) {
-                streamSelect(tEnv, stmt, Long.parseLong(System.getProperty("stream.seconds", "30")));
+                streamSelect(tEnv, raw, stmt, Long.parseLong(System.getProperty("stream.seconds", "30")));
                 return;
             }
             if (stmt.equals(EXPECT_ERROR)) {
@@ -92,11 +93,11 @@ public class SqlRunner {
                 continue;
             }
             if (stmt.startsWith(SH_PREFIX)) {
-                runShell(stmt.substring(SH_PREFIX.length()));
+                runShell(raw.substring(SH_PREFIX.length()), stmt.substring(SH_PREFIX.length()));
                 continue;
             }
             System.out.println();
-            System.out.println("Flink SQL> " + stmt.replace("\n", "\n        > ") + ";");
+            System.out.println("Flink SQL> " + raw.replace("\n", "\n        > ") + ";");
             try {
                 executeSql(tEnv, stmt);
                 if (expectError) {
@@ -143,15 +144,18 @@ public class SqlRunner {
     static String substituteVariables(String content) {
         String dir = System.getProperty("warehouse", "warehouse");
         java.nio.file.Path path = Paths.get(dir).toAbsolutePath().normalize();
+        // shell 命令在 labs/ 下执行：warehouse 在 labs/ 之内时用相对路径，输出里不出现本机绝对路径
+        java.nio.file.Path cwd = Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize();
+        String localDir = path.startsWith(cwd) ? cwd.relativize(path).toString() : path.toString();
         return content
                 .replace("${warehouse}", path.toUri().toString())
-                .replace("${warehouse_dir}", path.toString());
+                .replace("${warehouse_dir}", localDir);
     }
 
     /** 流式执行 SELECT：逐行打印（带 RowKind 和相对时间），到时间后退出。 */
-    private static void streamSelect(TableEnvironment tEnv, String sql, long seconds) throws Exception {
+    private static void streamSelect(TableEnvironment tEnv, String raw, String sql, long seconds) throws Exception {
         System.out.println();
-        System.out.println("Flink SQL (streaming, " + seconds + "s)> " + sql.replace("\n", "\n        > ") + ";");
+        System.out.println("Flink SQL (streaming, " + seconds + "s)> " + raw.replace("\n", "\n        > ") + ";");
         long start = System.currentTimeMillis();
         Thread timer = new Thread(() -> {
             try {
@@ -176,9 +180,9 @@ public class SqlRunner {
         }
     }
 
-    private static void runShell(String command) throws Exception {
+    private static void runShell(String display, String command) throws Exception {
         System.out.println();
-        System.out.println("$ " + command);
+        System.out.println("$ " + display);
         Process process = new ProcessBuilder("bash", "-c", command)
                 .directory(new File(System.getProperty("user.dir")))
                 .redirectErrorStream(true)

@@ -67,6 +67,8 @@ cd paimon-learning/labs && ./run-all.sh
 | lab02 | 时间旅行、Tag、增量读取、快照过期 | [lab02-记录](labs/notes/lab02-记录.md) |
 | lab03 | 流式读取：changelog-producer 对比、consumer-id | [lab03-记录](labs/notes/lab03-记录.md) |
 | lab04 | IDEA 远程调试，断点追踪一次写入 | [lab04-断点追踪写入](labs/notes/lab04-断点追踪写入.md) |
+| lab05 | 嵌入式运行缺依赖的 4 个典型报错 | [lab05-记录](labs/notes/lab05-记录.md) |
+| lab06 | Schema 演进：删列再加回，旧数据为什么回不来 | [lab06-记录](labs/notes/lab06-记录.md) |
 
 运行方式与参数见 [labs/README.md](labs/README.md)。
 

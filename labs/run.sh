@@ -10,6 +10,8 @@
 #   MAVEN_MIRROR    设为 aliyun 时使用阿里云 Maven 镜像（国内网络推荐）
 #   SKIP_BUILD=1    跳过 mvn（并发启动多个作业时由调用方先统一编译一次）
 #   JAVA_PROPS      额外的 JVM 参数（stream.sh / debug.sh 用它传参）
+#   EXCLUDE_JARS    从 classpath 去掉文件名匹配该正则的 jar（实验 5 复现缺依赖报错）
+#   EXTRA_JARS      额外追加到 classpath 的 jar，冒号分隔（实验 5 用）
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -58,5 +60,17 @@ JDK_OPTS="--add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java
 --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED \
 --add-exports=java.base/sun.net.util=ALL-UNNAMED --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED"
 
+CLASSPATH_VALUE=$(cat "$CLASSPATH_FILE")
+if [ -n "${EXCLUDE_JARS:-}" ]; then
+  # 实验 5 用：从 classpath 中去掉文件名匹配该正则的 jar，复现“缺依赖”时的报错
+  CLASSPATH_VALUE=$(tr ':' '\n' <<< "$CLASSPATH_VALUE" | grep -vE "/[^/]*(${EXCLUDE_JARS})[^/]*\.jar$" | paste -sd: -)
+  echo "[run.sh] 已从 classpath 排除：${EXCLUDE_JARS}"
+fi
+if [ -n "${EXTRA_JARS:-}" ]; then
+  # 实验 5 用：额外追加 jar（冒号分隔）
+  CLASSPATH_VALUE="$CLASSPATH_VALUE:$EXTRA_JARS"
+  echo "[run.sh] 已追加 jar：$(tr ":" "\n" <<< "$EXTRA_JARS" | xargs -n1 basename | paste -sd, -)"
+fi
+
 exec "$JAVA" $JDK_OPTS -Dwarehouse="$WAREHOUSE" ${JAVA_PROPS:-} \
-  -cp "target/classes:$(cat "$CLASSPATH_FILE")" learning.paimon.SqlRunner "$@"
+  -cp "target/classes:$CLASSPATH_VALUE" learning.paimon.SqlRunner "$@"

@@ -21,6 +21,7 @@ cd labs && ./run.sh sql/lab01/step1-create-insert.sql
 | `debug.sh <sql>` | 调试模式：JVM 在 5005 端口等待 IDEA 连接，并行度 1、心跳超时 1 小时 |
 | `lab03-a.sh` / `lab03-b.sh` | 实验 3 编排：后台流读 + 前台写入 |
 | `run-all.sh` | 冒烟测试：运行全部实验并断言关键结论 |
+| `lab05.sh` | 实验 5：依次去掉一个依赖，复现 4 个报错 |
 | `capture-lab01.sh` | 重跑实验 1 并把输出与目录快照留档到 `logs/` |
 
 ### 环境变量
@@ -31,6 +32,7 @@ cd labs && ./run.sh sql/lab01/step1-create-insert.sql
 | `WAREHOUSE` | `warehouse` | Paimon warehouse 目录（相对 labs/） |
 | `MAVEN_MIRROR` | 空 | 设为 `aliyun` 使用阿里云镜像（`maven-settings-aliyun.xml`） |
 | `JAVA_HOME` | 自动 | JDK 路径 |
+| `EXCLUDE_JARS` / `EXTRA_JARS` | 空 | 从 classpath 去掉匹配正则的 jar / 追加 jar（实验 5 用） |
 
 想从头再来：`rm -rf warehouse`。
 
@@ -50,6 +52,8 @@ cd labs && ./run.sh sql/lab01/step1-create-insert.sql
 | lab02 | `sql/lab02/` | 时间旅行、Tag、增量读取、快照过期三道保险 | 02、09 |
 | lab03 | `sql/lab03/`、`lab03-a.sh`、`lab03-b.sh` | 流式读取：changelog-producer 对比、consumer-id | 07、09 |
 | lab04 | `sql/lab04/`、`debug.sh` | IDEA 远程调试，断点追踪一次写入 | 02、05、08 |
+| lab05 | `sql/lab05/`、`lab05.sh` | 嵌入式运行缺依赖的 4 个典型报错（逐个去掉 jar 复现） | 01 |
+| lab06 | `sql/lab06/` | Schema 演进：字段 id 如何对应新旧文件里的列 | 02 |
 
 实验记录见 `notes/`。
 
@@ -76,4 +80,4 @@ cd labs && PAIMON_VERSION=2.2-SNAPSHOT ./debug.sh sql/lab04/trace-write.sql
 | 下载依赖很慢 | `MAVEN_MIRROR=aliyun` |
 | 调试时作业失败 | 用 `debug.sh`（已调大心跳超时），不要直接给 `run.sh` 加调试参数 |
 
-依赖说明：`flink-connector-base`、`flink-connector-files`、`flink-shaded-hadoop-2-uber`、log4j2（含 `log4j-1.2-api`，Hadoop 需要）——都是 Flink 发行版 `lib/` 里本来就有的，嵌入式运行需要自己补齐。
+依赖说明（实验 5 逐个验证过）：嵌入式运行需要自己补齐 `flink-connector-files`、log4j2（含 `log4j-1.2-api`，Hadoop 需要）、`flink-shaded-hadoop-2-uber`。前两者 Flink 发行版的 `lib/` 里自带；**Hadoop 发行版不带**，生产部署同样要自己提供（放入 shaded Hadoop jar 或设置 `HADOOP_CLASSPATH`）。`flink-connector-files` 已经把 `flink-connector-base` 的类打包在内，不需要单独引入。

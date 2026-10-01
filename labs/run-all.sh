@@ -90,6 +90,29 @@ JAVA_PROPS="-Ddebug=true" run sql/lab04/trace-write.sql lab04
 check "3 行写入合并为 2 条记录"                              $LOG/lab04.log "\|\s+1 \|\s+APPEND \|\s+2 \|"
 check "订单 1 保留最后写入的 C"                              $LOG/lab04.log "\|\s+1 \|\s+C \|"
 
+echo "== 实验 5：缺依赖的 4 个报错 =="
+./lab05.sh > $LOG/lab05.log 2>&1
+cp logs/lab05-[0-9].log $LOG/ 2>/dev/null
+check "缺 shaded hadoop：INSERT 报 hadoop Configuration"      $LOG/lab05.log "ClassNotFoundException: org.apache.hadoop.conf.Configuration"
+check "缺 log4j-1.2-api：INSERT 报 org.apache.log4j.Level"    $LOG/lab05.log "ClassNotFoundException: org.apache.log4j.Level"
+check "缺 connector-files：SELECT 报 SingleThreadMultiplexSourceReaderBase" $LOG/lab05.log "ClassNotFoundException: org.apache.flink.connector.base.source.reader.SingleThreadMultiplexSourceReaderBase"
+check "只补 connector-base：SELECT 报 BulkFormat\$RecordIterator" $LOG/lab05.log "ClassNotFoundException: org.apache.flink.connector.file.src.reader.BulkFormat"
+check "依赖齐全（不含 connector-base）：读写成功"              $LOG/lab05.log "场景 5.*退出码 0"
+
+echo "== 实验 6：Schema 演进 =="
+run sql/lab06/schema-evolution.sql lab06
+check "加列：remark 拿到字段 id 3"                           $LOG/lab06.log '"id" : 3,'
+check "加列：旧数据的新列为 NULL"                            $LOG/lab06.log "\|\s+1 \|\s+CREATED \|\s+99.90 \|\s+<NULL> \|"
+check "改名：order_status 读出旧数据"                        $LOG/lab06.log "order_status"
+check "删列后加回同名列：新 amount 拿到字段 id 4"            $LOG/lab06.log '"highestFieldId" : 4'
+check "删列后加回：旧数据不会回来（amount 全为 NULL）"       $LOG/lab06.log "\|\s+1 \|\s+CREATED \|\s+<NULL> \|\s+<NULL> \|"
+check "旧文件 schema_id=0，新文件 schema_id=1"               $LOG/lab06.log "\|\s+1 \|\s+1 \|\s+\[3\] \|\s+\[3\] \|"
+
+echo "== 截图安全：输出中不出现本机绝对路径 =="
+LEAKS=$(grep -lE "/Users/|/home/[a-z]" $LOG/lab0*.log 2>/dev/null | xargs -n1 basename 2>/dev/null | paste -sd, -)
+[ -z "$LEAKS" ] && { PASS=$((PASS + 1)); echo "  ✅ 所有实验日志中都没有本机绝对路径"; } \
+  || { FAIL=$((FAIL + 1)); echo "  ❌ 以下日志含本机绝对路径：$LEAKS"; }
+
 echo
 echo "通过 $PASS 项，失败 $FAIL 项。日志在 $LOG/"
 [ "$FAIL" = "0" ]
