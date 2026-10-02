@@ -2,7 +2,7 @@
 # 冒烟测试：在一个全新的 warehouse 里依次运行全部实验，并断言实验记录（notes/）中的关键结论。
 # 用法：./run-all.sh            （默认 Paimon 2.0.0）
 #       PAIMON_VERSION=2.2-SNAPSHOT ./run-all.sh
-# 全部通过时退出码为 0。耗时约 7~9 分钟（实验 3 含流式作业）。
+# 全部通过时退出码为 0。耗时约 8~10 分钟（实验 3 含流式作业）。
 set -uo pipefail
 cd "$(dirname "$0")"
 source ./lab-common.sh
@@ -61,6 +61,18 @@ check "Tag v1 仍可读出快照 1 的 5 行（含订单 3）"           $LOG/la
 DEL_TAG_FILES=$(sed -n '/删除 Tag 后：数据文件/,/manifest 目录/p' $LOG/lab02-3.log | grep -c '\.parquet$' || true)
 [ "$DEL_TAG_FILES" = "2" ] && { PASS=$((PASS + 1)); echo "  ✅ 删除 Tag 后只剩快照 4 的 2 个数据文件"; } \
   || { FAIL=$((FAIL + 1)); echo "  ❌ 删除 Tag 后应剩 2 个数据文件，实际 $DEL_TAG_FILES"; }
+run sql/lab02/time-travel-by-time.sql lab02-time
+TT_FILES=$(sed -n '/=== 磁盘上的数据文件 ===/,/^$/p' $LOG/lab02-time.log | grep -c '\.parquet$' || true)
+[ "$TT_FILES" = "3" ] && { PASS=$((PASS + 1)); echo "  ✅ 3 个快照共享文件：磁盘上只有 3 个数据文件"; } \
+  || { FAIL=$((FAIL + 1)); echo "  ❌ 磁盘上应有 3 个数据文件，实际 $TT_FILES"; }
+S3_FILES=$(sed -n "/SELECT 3 AS snapshot_id, REGEXP_EXTRACT(file_path/,/ in set$/p" $LOG/lab02-time.log | tail -1)
+[ "$S3_FILES" = "3 rows in set" ] && { PASS=$((PASS + 1)); echo "  ✅ 快照 3 引用 3 个数据文件"; } \
+  || { FAIL=$((FAIL + 1)); echo "  ❌ 快照 3 应引用 3 个数据文件，实际：$S3_FILES"; }
+TT_SYS=$(sed -n '/FOR SYSTEM_TIME AS OF/,/rows in set/p' $LOG/lab02-time.log)
+echo "$TT_SYS" | grep -qE '\|\s+1 \|\s+PAID \|' && echo "$TT_SYS" | grep -q '^3 rows in set' \
+  && { PASS=$((PASS + 1)); echo "  ✅ FOR SYSTEM_TIME AS OF 快照 2、3 之间：读到快照 2"; } \
+  || { FAIL=$((FAIL + 1)); echo "  ❌ FOR SYSTEM_TIME AS OF 应读到快照 2（订单 1 = PAID，3 行）"; }
+check "早于第一个快照：报 no snapshot earlier than"          $LOG/lab02-time.log "EXPECTED ERROR.*no snapshot earlier than or equal to timestamp"
 
 echo "== 实验 3A：changelog-producer none vs lookup（含流式作业，约 1.5 分钟） =="
 ./lab03-a.sh > $LOG/lab03-a.log 2>&1

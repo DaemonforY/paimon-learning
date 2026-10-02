@@ -25,6 +25,7 @@ import java.util.regex.Pattern;
  *   <li>{@code SET 'k' = 'v';} 设置 Flink / Paimon 参数
  *   <li>{@code -- @sh <命令>} 执行一条 shell 命令并打印输出（工作目录为 labs/），用于观察表目录
  *   <li>{@code -- @expect-error} 下一条语句预期会失败：只打印异常原因，不中断执行
+ *   <li>{@code -- @set NAME <命令>} 执行 shell 命令，把输出（去掉首尾空白）存为变量 {@code ${NAME}}，供后面的语句使用
  * </ul>
  *
  * <p>在 IDEA 中直接运行本类（Program arguments 填 SQL 文件路径），即可在 Paimon 源码里下断点。
@@ -35,6 +36,9 @@ public class SqlRunner {
             Pattern.compile("(?is)^SET\\s+'([^']+)'\\s*=\\s*'([^']*)'$");
     private static final String SH_PREFIX = "@sh ";
     private static final String EXPECT_ERROR = "@expect-error";
+    private static final Pattern SET_VAR_PATTERN = Pattern.compile("(?s)^@set\\s+([A-Za-z_][A-Za-z0-9_]*)\\s+(.+)$");
+    /** {@code -- @set} 定义的变量。 */
+    private static final java.util.Map<String, String> VARS = new java.util.LinkedHashMap<>();
 
     public static void main(String[] args) {
         if (args.length != 1) {
@@ -92,6 +96,14 @@ public class SqlRunner {
                 expectError = true;
                 continue;
             }
+            Matcher setVar = SET_VAR_PATTERN.matcher(stmt);
+            if (setVar.matches()) {
+                String value = captureShell(setVar.group(2)).trim();
+                VARS.put(setVar.group(1), value);
+                System.out.println();
+                System.out.println("$ " + setVar.group(1) + " = " + value);
+                continue;
+            }
             if (stmt.startsWith(SH_PREFIX)) {
                 runShell(raw.substring(SH_PREFIX.length()), stmt.substring(SH_PREFIX.length()));
                 continue;
@@ -147,9 +159,13 @@ public class SqlRunner {
         // shell 命令在 labs/ 下执行：warehouse 在 labs/ 之内时用相对路径，输出里不出现本机绝对路径
         java.nio.file.Path cwd = Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize();
         String localDir = path.startsWith(cwd) ? cwd.relativize(path).toString() : path.toString();
-        return content
+        String result = content
                 .replace("${warehouse}", path.toUri().toString())
                 .replace("${warehouse_dir}", localDir);
+        for (java.util.Map.Entry<String, String> var : VARS.entrySet()) {
+            result = result.replace("${" + var.getKey() + "}", var.getValue());
+        }
+        return result;
     }
 
     /** 流式执行 SELECT：逐行打印（带 RowKind 和相对时间），到时间后退出。 */
@@ -178,6 +194,23 @@ public class SqlRunner {
                         (System.currentTimeMillis() - start) / 1000.0, row);
             }
         }
+    }
+
+    /** 执行 shell 命令并返回标准输出（用于 {@code -- @set}）。 */
+    private static String captureShell(String command) throws Exception {
+        Process process = new ProcessBuilder("bash", "-c", command)
+                .directory(new File(System.getProperty("user.dir")))
+                .redirectErrorStream(true)
+                .start();
+        java.io.ByteArrayOutputStream buf = new java.io.ByteArrayOutputStream();
+        byte[] chunk = new byte[4096];
+        int n;
+        while ((n = process.getInputStream().read(chunk)) != -1) {
+            buf.write(chunk, 0, n);
+        }
+        String out = new String(buf.toByteArray(), StandardCharsets.UTF_8);
+        process.waitFor();
+        return out;
     }
 
     private static void runShell(String display, String command) throws Exception {
@@ -213,7 +246,8 @@ public class SqlRunner {
             String trimmed = line.trim();
             if (trimmed.startsWith("--")) {
                 String directive = trimmed.substring(2).trim();
-                if (directive.startsWith(SH_PREFIX) || directive.equals(EXPECT_ERROR)) {
+                if (directive.startsWith(SH_PREFIX) || directive.startsWith("@set ")
+                        || directive.equals(EXPECT_ERROR)) {
                     statements.add(directive);
                 }
                 continue;

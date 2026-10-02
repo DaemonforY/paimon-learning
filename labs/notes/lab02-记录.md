@@ -74,3 +74,22 @@ return expireUntil(earliest, maxExclusive);
 3. 流读作业停了 2 小时后重启，会发生什么？怎么避免？（回顾 09 章 consumer-id，代码里就是 `consumerManager.minNextSnapshot()` 那一行）
 4. Tag 可以设 `time_retained`，到期自动删除。它和快照过期是谁在执行？（提示：`TableCommitImpl.maintain()`）
 5. 如果手动删掉某个快照引用的 parquet 文件，读这个快照会怎样？`remove_orphan_files` 删的又是哪类文件？
+
+## 补充：按时间旅行与文件共享（`sql/lab02/time-travel-by-time.sql`，S1 第 6 期素材）
+
+```bash
+./run.sh sql/lab02/time-travel-by-time.sql
+```
+
+三次提交、每次间隔 3 秒（Paimon 2.0.0）：
+
+| 观察 | 结果 |
+|---|---|
+| 每个快照引用的数据文件 | 快照 1/2/3 分别 1/2/3 个，快照 1 的文件被 3 个快照共用；磁盘上一共 3 个 parquet |
+| 每个快照的 manifest | 1/2/3 个，旧 manifest 被新快照直接复用（数量少，未触发 manifest 合并） |
+| snapshot JSON | 每个 595 字节，只记 base / delta manifest list 的文件名 |
+| `scan.timestamp-millis` = 快照 2 提交时间、快照 2 与 3 之间 | 都读到快照 2 |
+| `FOR SYSTEM_TIME AS OF TIMESTAMP '…'`（快照 2 与 3 之间） | 快照 2 |
+| 比快照 1 早 1 毫秒 | `There is currently no snapshot earlier than or equal to timestamp [...]` |
+
+查询用的时间戳由 `-- @set` 从快照文件读出，结果每次可复现。规则：取“提交时间 ≤ 指定时刻”的最新快照（`SnapshotManager.earlierOrEqualTimeMills`）。

@@ -43,6 +43,7 @@ cd labs && ./run.sh sql/lab01/step1-create-insert.sql
 - `SET 'k' = 'v';`：设置参数
 - `-- @sh <命令>`：执行 shell 命令并打印输出
 - `-- @expect-error`：下一条语句预期失败，只打印异常根因，不中断脚本
+- `-- @set NAME <命令>`：执行 shell 命令，把输出（去掉首尾空白）存为变量 `${NAME}`，供后面的语句使用（例如从快照文件读出提交时间，见 `sql/lab02/time-travel-by-time.sql`）
 
 ## 实验列表
 
