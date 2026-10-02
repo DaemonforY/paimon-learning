@@ -1,0 +1,2 @@
+# S2 第 1 讲：key 重叠的多个文件 → 合并读（配合 sql/lab04/compare-write-buffer.sql，wb_two 表）
+stop at org.apache.paimon.operation.MergeFileSplitRead:253

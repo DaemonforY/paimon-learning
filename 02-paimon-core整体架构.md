@@ -87,11 +87,11 @@ table/
 TableWriteImpl.write(row)
   → KeyValueFileStoreWrite 按 (partition, bucket) 找到/创建 writer
     → MergeTreeWriter.write(kv)                        mergetree/MergeTreeWriter.java
-        writeBuffer.put(seq, kind, key, value)          内存排序缓冲（SortBufferWriteBuffer，可溢写）
-        缓冲满 → flushWriteBuffer()
-            排序后写出一个 L0 文件 → compactManager.addNewFile()
+        writeBuffer.put(seq, kind, key, value)          内存排序缓冲（SortBufferWriteBuffer）
+        缓冲满：默认先溢写到本地磁盘；关闭 write-buffer-spillable 时才提前 flushWriteBuffer()
+  → prepareCommit(waitCompaction)                       批作业输入结束 / 流作业 checkpoint 前
+        flushWriteBuffer()：排序 + 合并同 key → 写出 L0 文件 → compactManager.addNewFile()
             → compactManager.triggerCompaction()        异步合并
-  → prepareCommit(waitCompaction)
         返回 CommitIncrement（新文件 + 合并前后文件 + changelog）
         → 包装成 CommitMessage 交给提交端
 ```
