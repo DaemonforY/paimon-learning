@@ -100,3 +100,24 @@ endInput ──► flushWriteBuffer：排序 + DeduplicateMergeFunction 合并�
 3. **观察第二次写入**：不 DROP 表再跑一次（注释掉 DROP/CREATE），在 ④ 处看 `scanExistingFileMetas` 恢复出上次的文件、⑥ 处 `newSequenceNumber` 从 3 开始。
 4. **观察合并**：连续写 5 次以上，在 `MergeTreeCompactManager.triggerCompaction` 处断点，看 `UniversalCompaction.pick` 何时返回非空（03 章）。
 5. 画出你自己的调用链图（从 `RowDataStoreWriteOperator.processElement` 到 `RenamingSnapshotCommit.commit`），放进 `notes/` 里。
+
+## 6. 对照实验：写缓冲的合并范围（不需要调试器）
+
+两个脚本直接用 `./run.sh` 运行，结论已写进 `run-all.sh` 断言（S1 第 5 期素材）：
+
+```bash
+./run.sh sql/lab04/compare-write-buffer.sql
+./run.sh sql/lab04/compare-buffer-full.sql
+```
+
+| 场景 | 结果（Paimon 2.0.0） |
+|---|---|
+| 一次 INSERT `(1,A),(2,B),(1,C)` | 1 个 L0 文件、2 条、seq 1~2；快照 1 的 audit_log 里没有 A |
+| 同样 3 行分两次 INSERT | 2 个文件、共 3 条（seq 0~1 / 2）；查询结果仍是 C、B |
+| `merge-engine = aggregation`，sum | 文件 2 条，订单 1 = 10 + 5 = 15 |
+| `changelog-producer = input` | 数据文件 2 条；changelog 文件 3 条（A、C、B） |
+| 5 万行 / 10 个主键 / 256 kb 缓冲，可溢写（默认） | 1 个文件、10 条 |
+| 同上，`write-buffer-spillable = false` | 20 个文件、每个 10 条（缓冲每装满 2520 行刷一次） |
+
+结论：**写入时的合并只发生在同一个写缓冲内**（同一次提交、同一个桶）；跨提交的旧版本靠读取时归并和 compaction 去掉。
+`compare-buffer-full.sql` 必须单并行度运行（脚本里已 `SET 'parallelism.default' = '1'`），否则数据到达顺序不固定，结果不可复现。

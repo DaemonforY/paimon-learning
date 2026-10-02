@@ -2,7 +2,7 @@
 # 冒烟测试：在一个全新的 warehouse 里依次运行全部实验，并断言实验记录（notes/）中的关键结论。
 # 用法：./run-all.sh            （默认 Paimon 2.0.0）
 #       PAIMON_VERSION=2.2-SNAPSHOT ./run-all.sh
-# 全部通过时退出码为 0。耗时约 6~8 分钟（实验 3 含流式作业）。
+# 全部通过时退出码为 0。耗时约 7~9 分钟（实验 3 含流式作业）。
 set -uo pipefail
 cd "$(dirname "$0")"
 source ./lab-common.sh
@@ -89,6 +89,13 @@ echo "== 实验 4：写入链路（非调试模式运行） =="
 JAVA_PROPS="-Ddebug=true" run sql/lab04/trace-write.sql lab04
 check "3 行写入合并为 2 条记录"                              $LOG/lab04.log "\|\s+1 \|\s+APPEND \|\s+2 \|"
 check "订单 1 保留最后写入的 C"                              $LOG/lab04.log "\|\s+1 \|\s+C \|"
+run sql/lab04/compare-write-buffer.sql lab04-compare
+run sql/lab04/compare-buffer-full.sql  lab04-full
+check "分两次写：2 个文件共 3 条记录（快照 2 total=3）"          $LOG/lab04-compare.log "\|\s+2 \|\s+APPEND \|\s+3 \|\s+1 \|"
+check "aggregation sum：订单 1 = 15"                          $LOG/lab04-compare.log "\|\s+1 \|\s+15 \|"
+check "changelog-producer=input：changelog 保留被合并的 A"     $LOG/lab04-compare.log "\|\s+\+I \|\s+1 \|\s+A \|"
+check "可溢写：1 个文件 10 条"                                  $LOG/lab04-full.log "\|\s+spill \|\s+1 \|\s+10 \|"
+check "关闭溢写：20 个文件 200 条"                              $LOG/lab04-full.log "\|\s+nospill \|\s+20 \|\s+200 \|"
 
 echo "== 实验 5：缺依赖的 4 个报错 =="
 ./lab05.sh > $LOG/lab05.log 2>&1
