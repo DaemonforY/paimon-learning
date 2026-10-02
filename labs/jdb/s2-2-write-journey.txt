@@ -1,0 +1,27 @@
+# S2 第 2 讲：一条数据的写入之旅（配合 sql/lab04/trace-write-twice.sql；行号基于 Paimon master @ d15d250cf / 2.2-SNAPSHOT）
+# ① 分桶：bucket = Math.abs(bucketKey.hashCode() % numBuckets)
+stop at org.apache.paimon.table.sink.FixedBucketRowKeyExtractor:79
+  print bucketKey().getLong(0)
+  print bucketKey().hashCode()
+  print numBuckets
+# ② 为 (分区, bucket) 创建 writer：恢复已有文件
+stop at org.apache.paimon.operation.AbstractFileStoreWrite:582
+  print bucket
+  print restored.dataFiles().size()
+  print latestSnapshot
+# ③ 每行数据进入写缓冲：分配 sequence number
+stop at org.apache.paimon.mergetree.MergeTreeWriter:166
+  print kv.key().getLong(0)
+  print kv.value().getString(1).toString()
+  print this.newSequenceNumber
+# ④ 刷盘时同 key 合并：去重合并函数返回最新的一条
+stop at org.apache.paimon.mergetree.compact.DeduplicateMergeFunction:59
+  print latestKv.key().getLong(0)
+  print latestKv.value().getString(1).toString()
+  print latestKv.sequenceNumber()
+# ⑤ 刷盘完成：新写出的 L0 文件
+stop at org.apache.paimon.mergetree.MergeTreeWriter:243
+  print dataWriter.result()
+# ⑥ 包装成 CommitMessage 交给提交端
+stop at org.apache.paimon.operation.AbstractFileStoreWrite:291
+  print committable

@@ -121,3 +121,20 @@ endInput ──► flushWriteBuffer：排序 + DeduplicateMergeFunction 合并�
 
 结论：**写入时的合并只发生在同一个写缓冲内**（同一次提交、同一个桶）；跨提交的旧版本靠读取时归并和 compaction 去掉。
 `compare-buffer-full.sql` 必须单并行度运行（脚本里已 `SET 'parallelism.default' = '1'`），否则数据到达顺序不固定，结果不可复现。
+
+## 7. 不开 IDEA：用 jdb 打印每一站的变量（S2 第 2 讲素材）
+
+```bash
+PAIMON_VERSION=2.2-SNAPSHOT ./jdb-stacks.sh sql/lab04/trace-write-twice.sql jdb/s2-2-write-journey.txt 60
+```
+
+`bucket = 2` 的表写两次：`(1,A) (2,B) (1,C)`，再 `(1,D) (3,E)`。26 次命中的关键值：
+
+| 站 | 断点 | 打印结果 |
+|---|---|---|
+| 分桶 | `FixedBucketRowKeyExtractor:79` | 订单 1/2/3 哈希 1465514398 / 1340390384 / -771300025 → bucket 0 / 0 / 1；Source 与 Writer 线程各算一次 |
+| 找 writer | `AbstractFileStoreWrite:582` | 第 1 次：无快照、无文件；第 2 次 bucket 0 恢复 1 个文件，bucket 1 恢复 0 个 |
+| 写缓冲 | `MergeTreeWriter:166` | seq 0/1/2；第 2 次 bucket 0 从 3 开始，bucket 1 从 0 开始 |
+| 刷盘合并 | `DeduplicateMergeFunction:59` | 写入时只命中 1 次（订单 1 → C）；读取时又命中 1 次（订单 1 → D） |
+| L0 文件 | `MergeTreeWriter:243` | rowCount 2、seq 1~2、level 0 |
+| CommitMessage | `AbstractFileStoreWrite:291` | 每个 bucket 一条，compactIncrement 为空 |

@@ -19,7 +19,7 @@ cd labs && ./run.sh sql/lab01/step1-create-insert.sql
 | `run.sh <sql>` | 批模式执行 SQL 文件（逐条执行并打印结果） |
 | `stream.sh <sql> [秒数]` | 流模式：最后一条 SELECT 持续读取指定秒数，逐行打印 RowKind 和时间 |
 | `debug.sh <sql>` | 调试模式：JVM 在 5005 端口等待 IDEA 连接，并行度 1、心跳超时 1 小时 |
-| `jdb-stacks.sh <sql> <断点清单> [次数]` | 不开 IDEA：用 jdb 在断点处打印真实调用栈到 `logs/stacks.log`（断点清单见 `jdb/`，需 `PAIMON_VERSION=2.2-SNAPSHOT` 以对齐行号） |
+| `jdb-stacks.sh <sql> <断点清单> [次数]` | 不开 IDEA：用 jdb 在断点处打印真实调用栈和变量到 `logs/stacks.log`（断点清单见 `jdb/`，缩进行为命中时执行的 `print` 等命令；需 `PAIMON_VERSION=2.2-SNAPSHOT` 以对齐行号） |
 | `lab03-a.sh` / `lab03-b.sh` | 实验 3 编排：后台流读 + 前台写入 |
 | `run-all.sh` | 冒烟测试：运行全部实验并断言关键结论 |
 | `lab05.sh` | 实验 5：依次去掉一个依赖，复现 4 个报错 |
