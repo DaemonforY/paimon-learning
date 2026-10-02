@@ -14,8 +14,12 @@ INSERT INTO orders VALUES
   (1, 101, 99.90, 'PAID',    '2026-09-24'),
   (6, 105, 12.30, 'CREATED', '2026-09-25');
 
+-- @sh echo '=== DELETE 之前的数据文件 ===' && find ${warehouse_dir}/default.db/orders -name '*.parquet' | sed 's|.*/orders/||' | sort
+
 -- 删除订单 3（批模式下 Paimon 主键表支持 DELETE）
 DELETE FROM orders WHERE dt = '2026-09-24' AND order_id = 3;
+
+-- @sh echo '=== DELETE 之后的数据文件 ===' && find ${warehouse_dir}/default.db/orders -name '*.parquet' | sed 's|.*/orders/||' | sort
 
 SELECT * FROM orders ORDER BY order_id;
 

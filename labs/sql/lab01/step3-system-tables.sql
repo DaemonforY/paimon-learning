@@ -19,6 +19,9 @@ SELECT `partition`, bucket, level, record_count, min_key, max_key,
 FROM `orders$files`
 ORDER BY `partition`, bucket, level, min_sequence_number;
 
+-- DELETE 到底写了什么：增量读取快照 3（删除订单 3 的那次提交），rowkind 列显示 -D
+SELECT * FROM `orders$audit_log` /*+ OPTIONS('incremental-between' = '2,3') */;
+
 -- manifest 文件：每个 manifest 新增/删除了几个文件
 SELECT file_name, num_added_files, num_deleted_files FROM `orders$manifests`;
 

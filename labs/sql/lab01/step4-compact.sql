@@ -7,7 +7,11 @@ CREATE CATALOG paimon WITH (
 );
 USE CATALOG paimon;
 
+-- @sh echo '=== 合并之前的数据文件 ===' && find ${warehouse_dir}/default.db/orders -name '*.parquet' | sed 's|.*/orders/||' | sort
+
 CALL sys.compact(`table` => 'default.orders');
+
+-- @sh echo '=== 合并之后的数据文件（磁盘上） ===' && find ${warehouse_dir}/default.db/orders -name '*.parquet' | sed 's|.*/orders/||' | sort
 
 SELECT snapshot_id, commit_kind, total_record_count, delta_record_count FROM `orders$snapshots`;
 
