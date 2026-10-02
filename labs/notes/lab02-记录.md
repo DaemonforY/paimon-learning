@@ -93,3 +93,24 @@ return expireUntil(earliest, maxExclusive);
 | 比快照 1 早 1 毫秒 | `There is currently no snapshot earlier than or equal to timestamp [...]` |
 
 查询用的时间戳由 `-- @set` 从快照文件读出，结果每次可复现。规则：取“提交时间 ≤ 指定时刻”的最新快照（`SnapshotManager.earlierOrEqualTimeMills`）。
+
+## 补充：Tag 是什么、怎么用（`sql/lab02/tag-basics.sql`、`tag-auto-period.sql`，S1 第 8 期素材）
+
+```bash
+./run.sh sql/lab02/tag-basics.sql
+./run.sh sql/lab02/tag-auto-period.sql   # 约 2 分钟，要等一个分钟边界
+```
+
+| 观察 | 结果（Paimon 2.0.0） |
+|---|---|
+| `create_tag v1 → 快照 1` | `tag/tag-v1` 与 `snapshot/snapshot-1` **逐字节相同**（`cmp`），均 595 字节 |
+| 带 `time_retained => '2 s'` 的 Tag | 比快照 JSON 多 `tagCreateTime`、`tagTimeRetained` 两个字段；3 秒后的**下一次提交**时被删除 |
+| `rollback_to v1`（回滚前快照 1~4、Tag v1→1 / release→3） | 返回 `(4, 1)`；只剩快照 1，**release 被删**；数据文件仍是 4 个（不删数据文件） |
+| 回滚后再写入 | 新快照编号复用为 2；数据文件 5 个 |
+| `remove_orphan_files`（older_than = 当前时间） | 删除 12 个文件：数据文件 5 → 2，`manifest/` 15 → 6 |
+| `tag.automatic-creation = batch` | 每次批作业后 `batch-write-日期` → 最新快照；同一天再跑被替换 |
+| `process-time` + `daily` | 第一次提交立刻生成**昨天日期**的 Tag，指向这次提交的快照 |
+| `process-time` + 1 分钟周期 | 首次提交 → 上一分钟的 Tag；同分钟内不打；跨边界后的第一次提交 → 刚结束那一分钟的 Tag，**包含边界之后写入的数据** |
+
+源码：`TagManager.createTag`、`TagTimeExpire.expire`、`RollbackHelper.cleanLargerThan`、`TagBatchCreation.createTag`、`TagAutoCreation.tryToCreateTags`。
+`remove_orphan_files` 对不存在的 `index/`、`statistics/` 目录打的 WARN 含本机路径，已在 `log4j2.properties` 中把 `FlinkOrphanFilesClean` 调到 ERROR。

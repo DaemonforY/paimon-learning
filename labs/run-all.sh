@@ -2,7 +2,7 @@
 # 冒烟测试：在一个全新的 warehouse 里依次运行全部实验，并断言实验记录（notes/）中的关键结论。
 # 用法：./run-all.sh            （默认 Paimon 2.0.0）
 #       PAIMON_VERSION=2.2-SNAPSHOT ./run-all.sh
-# 全部通过时退出码为 0。耗时约 8~10 分钟（实验 3 含流式作业）。
+# 全部通过时退出码为 0。耗时约 10~12 分钟（实验 3 含流式作业）。
 set -uo pipefail
 cd "$(dirname "$0")"
 source ./lab-common.sh
@@ -73,6 +73,24 @@ echo "$TT_SYS" | grep -qE '\|\s+1 \|\s+PAID \|' && echo "$TT_SYS" | grep -q '^3 
   && { PASS=$((PASS + 1)); echo "  ✅ FOR SYSTEM_TIME AS OF 快照 2、3 之间：读到快照 2"; } \
   || { FAIL=$((FAIL + 1)); echo "  ❌ FOR SYSTEM_TIME AS OF 应读到快照 2（订单 1 = PAID，3 行）"; }
 check "早于第一个快照：报 no snapshot earlier than"          $LOG/lab02-time.log "EXPECTED ERROR.*no snapshot earlier than or equal to timestamp"
+run sql/lab02/tag-basics.sql      lab02-tag
+run sql/lab02/tag-auto-period.sql lab02-tag-period
+check "Tag 文件与快照文件逐字节相同"                         $LOG/lab02-tag.log "tag-v1 与 snapshot-1 逐字节相同"
+check "设保留时间的 Tag 多出 tagTimeRetained 字段"           $LOG/lab02-tag.log '"tagTimeRetained" : 2'
+TMP_LEFT=$(sed -n "/INSERT INTO tg VALUES (4, 'CREATED')/,/ in set$/p" $LOG/lab02-tag.log | grep -c '|\s*tmp |' || true)
+[ "$TMP_LEFT" = "0" ] && { PASS=$((PASS + 1)); echo "  ✅ Tag tmp 到期后在下一次提交时被删除"; } \
+  || { FAIL=$((FAIL + 1)); echo "  ❌ Tag tmp 应已过期删除"; }
+check "rollback_to 返回 (4, 1)"                              $LOG/lab02-tag.log "^4, 1$"
+REL_LEFT=$(sed -n "/CALL sys.rollback_to/,/SELECT \* FROM tg ORDER BY order_id/p" $LOG/lab02-tag.log | grep -c '|\s*release |' || true)
+[ "$REL_LEFT" = "0" ] && { PASS=$((PASS + 1)); echo "  ✅ 回滚后比目标新的 Tag release 被删除"; } \
+  || { FAIL=$((FAIL + 1)); echo "  ❌ 回滚后 Tag release 应被删除"; }
+ORPHAN_LEFT=$(grep -A1 '^=== 清理孤儿文件后' $LOG/lab02-tag.log | sed -n 2p | tr -d ' ')
+[ "$ORPHAN_LEFT" = "2" ] && { PASS=$((PASS + 1)); echo "  ✅ remove_orphan_files 后只剩 2 个数据文件"; } \
+  || { FAIL=$((FAIL + 1)); echo "  ❌ 清理孤儿文件后应剩 2 个数据文件，实际 $ORPHAN_LEFT"; }
+check "batch 自动 Tag 同一天被替换为快照 2"                   $LOG/lab02-tag.log "\|\s+batch-write-[0-9-]+ \|\s+2 \|"
+check "process-time daily 首次提交即生成日期 Tag"            $LOG/lab02-tag.log "\|\s+[0-9]{4}-[0-9]{2}-[0-9]{2} \|\s+1 \|"
+check "1 分钟周期：跨边界后的提交生成上一分钟的 Tag → 快照 3" $LOG/lab02-tag-period.log "\|\s+[0-9]{12} \|\s+3 \|"
+check "该 Tag 包含边界之后写入的订单 3"                       $LOG/lab02-tag-period.log "\|\s+3 \|\s+CREATED \|"
 
 echo "== 实验 3A：changelog-producer none vs lookup（含流式作业，约 1.5 分钟） =="
 ./lab03-a.sh > $LOG/lab03-a.log 2>&1
