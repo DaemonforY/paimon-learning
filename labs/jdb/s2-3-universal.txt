@@ -1,0 +1,24 @@
+# S2 第 3 讲：UniversalCompaction 怎么选文件（配合 sql/lab04/universal-compaction.sql；行号基于 d15d250cf）
+# pick 入口：本次参与挑选的 run（index 0 最新）
+stop at org.apache.paimon.mergetree.compact.UniversalCompaction:68
+  print runs.size()
+  print numLevels
+# 空间放大：候选（除最老外）总大小 vs 最老 run 大小
+stop at org.apache.paimon.mergetree.compact.UniversalCompaction:139
+  print candidateSize
+  print earliestRunSize
+# 大小比例：每吸收一个 run 之前的判断
+stop at org.apache.paimon.mergetree.compact.UniversalCompaction:169
+  print i
+  print candidateSize
+  print next.level()
+  print next.run().totalSize()
+  print compactionTriggered
+# 文件数兜底
+stop at org.apache.paimon.mergetree.compact.UniversalCompaction:99
+  print runs.size()
+# 最终选择：吸收了几个 run、输出到哪一层
+stop at org.apache.paimon.mergetree.compact.UniversalCompaction:225
+  print runCount
+  print outputLevel
+  print runs.size()

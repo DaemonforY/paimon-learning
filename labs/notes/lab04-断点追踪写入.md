@@ -138,3 +138,18 @@ PAIMON_VERSION=2.2-SNAPSHOT ./jdb-stacks.sh sql/lab04/trace-write-twice.sql jdb/
 | 刷盘合并 | `DeduplicateMergeFunction:59` | 写入时只命中 1 次（订单 1 → C）；读取时又命中 1 次（订单 1 → D） |
 | L0 文件 | `MergeTreeWriter:243` | rowCount 2、seq 1~2、level 0 |
 | CommitMessage | `AbstractFileStoreWrite:291` | 每个 bucket 一条，compactIncrement 为空 |
+
+## 8. UniversalCompaction 怎么选文件（S2 第 3 讲素材）
+
+```bash
+./run.sh sql/lab04/universal-compaction.sql       # 2000 行 L5 底座 + 8 次单行提交
+./run.sh sql/lab04/universal-compaction-2.sql     # uc_amp（空间放大）、uc_num（文件数兜底）
+PAIMON_VERSION=2.2-SNAPSHOT ./jdb-stacks.sh sql/lab04/universal-compaction.sql jdb/s2-3-universal.txt 200
+```
+
+| 表 | 现象（Paimon 2.0.0） | jdb 打印的挑选过程 |
+|---|---|---|
+| uc | 第 4 次单行提交就合并：4 个 L0 → L4（底座 L5 也算一个 run，共 5 个） | 空间放大 4394 vs 8744 不触发；比例吸收 1099→2198→3297→4394，遇 L5 停；runCount 4、outputLevel 4 |
+| uc | 第 7 次提交：3 个 L0 + L4 → 新 L4（7 行） | 3297 × 1.01 ≥ L4 1230 → 吸收 L4 |
+| uc_amp | 底座 1 行，第 4 次提交全量合并到 L5 | 4395 × 100 > 200 × 1118 |
+| uc_num | 每次越写越少：5 个 run 不合并；6 个 run 全量合并到 L5 | 1555 × 1.01 < 1581 → 不吸收；兜底强制 2 个后一路吸收，8968 × 1.01 ≥ 底座 8744 → 连底座一起 |

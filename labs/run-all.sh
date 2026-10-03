@@ -2,7 +2,7 @@
 # 冒烟测试：在一个全新的 warehouse 里依次运行全部实验，并断言实验记录（notes/）中的关键结论。
 # 用法：./run-all.sh            （默认 Paimon 2.0.0）
 #       PAIMON_VERSION=2.2-SNAPSHOT ./run-all.sh
-# 全部通过时退出码为 0。耗时约 10~12 分钟（实验 3 含流式作业）。
+# 全部通过时退出码为 0。耗时约 11~13 分钟（实验 3 含流式作业）。
 set -uo pipefail
 cd "$(dirname "$0")"
 source ./lab-common.sh
@@ -126,6 +126,12 @@ check "aggregation sum：订单 1 = 15"                          $LOG/lab04-comp
 check "changelog-producer=input：changelog 保留被合并的 A"     $LOG/lab04-compare.log "\|\s+\+I \|\s+1 \|\s+A \|"
 check "可溢写：1 个文件 10 条"                                  $LOG/lab04-full.log "\|\s+spill \|\s+1 \|\s+10 \|"
 check "关闭溢写：20 个文件 200 条"                              $LOG/lab04-full.log "\|\s+nospill \|\s+20 \|\s+200 \|"
+run sql/lab04/universal-compaction.sql   lab04-uc
+run sql/lab04/universal-compaction-2.sql lab04-uc2
+check "UniversalCompaction：第 4 次单行提交合并成 L4（4 行）"     $LOG/lab04-uc.log "\|\s+4 \|\s+[0-9]+ \|\s+4 \|\s+2000 \|\s+2003 \|"
+check "UniversalCompaction：第 7 次提交雪球吸收 L4（7 行）"       $LOG/lab04-uc.log "\|\s+4 \|\s+[0-9]+ \|\s+7 \|\s+2000 \|\s+2006 \|"
+check "空间放大：uc_amp 全量合并到 L5（5 行）"                     $LOG/lab04-uc2.log "\|\s+5 \|\s+[0-9]+ \|\s+5 \|"
+check "文件数兜底：uc_num 连底座全量合并到 L5（2775 行）"           $LOG/lab04-uc2.log "\|\s+5 \|\s+[0-9]+ \|\s+2775 \|"
 
 echo "== 实验 5：缺依赖的 4 个报错 =="
 ./lab05.sh > $LOG/lab05.log 2>&1
