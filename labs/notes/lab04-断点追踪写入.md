@@ -153,3 +153,20 @@ PAIMON_VERSION=2.2-SNAPSHOT ./jdb-stacks.sh sql/lab04/universal-compaction.sql j
 | uc | 第 7 次提交：3 个 L0 + L4 → 新 L4（7 行） | 3297 × 1.01 ≥ L4 1230 → 吸收 L4 |
 | uc_amp | 底座 1 行，第 4 次提交全量合并到 L5 | 4395 × 100 > 200 × 1118 |
 | uc_num | 每次越写越少：5 个 run 不合并；6 个 run 全量合并到 L5 | 1555 × 1.01 < 1581 → 不吸收；兜底强制 2 个后一路吸收，8968 × 1.01 ≥ 底座 8744 → 连底座一起 |
+
+## 9. 合并怎么执行：升级 vs 重写（S2 第 4 讲素材）
+
+```bash
+./run.sh sql/lab04/compact-task.sql
+PAIMON_VERSION=2.2-SNAPSHOT ./jdb-stacks.sh sql/lab04/compact-task.sql jdb/s2-4-compact-task.txt 300
+```
+
+两张表写入相同的 5 次提交（E 10 行、A/B/C/D 各 12000 行，`target-file-size = 64 kb`，每次写出 6 个约 7.4 KB 文件），只差 `compaction.small-file-ratio`：
+
+| | ct_def（0.7，阈值 45875 B） | ct（0.05，阈值 3276 B） |
+|---|---|---|
+| 4 次合并升级文件数（upgradeFilesNum） | 0 / 0 / 0 / 0 | 7 / 6 / 6 / 6 |
+| C 之后那次合并 | 19 → 13，全部重写，13 个文件换成同一个新前缀 | 18 → 12：A+C 重写成 6 个新文件，B 的 6 个文件原名升到 L5 |
+| E 的文件名 | 第一次合并后就变了 | 始终不变 |
+
+INFO 日志的 `outputBytes` 包含被升级的文件；判断是否真的重写要看文件名，或 DEBUG 日志的 `upgrade file num`。

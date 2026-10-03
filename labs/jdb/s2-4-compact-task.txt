@@ -1,0 +1,30 @@
+# S2 第 4 讲：MergeTreeCompactTask 怎么执行合并（配合 sql/lab04/compact-task.sql；行号基于 d15d250cf）
+# 构造任务：IntervalPartition 切出几个 section
+stop at org.apache.paimon.mergetree.compact.MergeTreeCompactTask:79
+  print outputLevel
+  print minFileSize
+  print partitioned.size()
+  print dropDelete
+# 逐个 section：有重叠（多个 run）→ 进候选
+stop at org.apache.paimon.mergetree.compact.MergeTreeCompactTask:92
+  print section.size()
+# 无重叠的单个文件：大还是小？
+stop at org.apache.paimon.mergetree.compact.MergeTreeCompactTask:100
+  print file.fileName()
+  print file.fileSize()
+  print file.level()
+  print candidate.size()
+# 升级：只改 level
+stop at org.apache.paimon.mergetree.compact.MergeTreeCompactTask:135
+  print file.fileName()
+  print file.level()
+  print outputLevel
+# 真正重写：归并候选
+stop at org.apache.paimon.mergetree.compact.MergeTreeCompactTask:162
+  print candidate.size()
+  print candidate.get(0).size()
+# 任务结束：before / after
+stop at org.apache.paimon.mergetree.compact.MergeTreeCompactTask:113
+  print result.before().size()
+  print result.after().size()
+  print upgradeFilesNum

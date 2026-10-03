@@ -2,7 +2,7 @@
 # 冒烟测试：在一个全新的 warehouse 里依次运行全部实验，并断言实验记录（notes/）中的关键结论。
 # 用法：./run-all.sh            （默认 Paimon 2.0.0）
 #       PAIMON_VERSION=2.2-SNAPSHOT ./run-all.sh
-# 全部通过时退出码为 0。耗时约 11~13 分钟（实验 3 含流式作业）。
+# 全部通过时退出码为 0。耗时约 12~14 分钟（实验 3 含流式作业）。
 set -uo pipefail
 cd "$(dirname "$0")"
 source ./lab-common.sh
@@ -132,6 +132,13 @@ check "UniversalCompaction：第 4 次单行提交合并成 L4（4 行）"     $
 check "UniversalCompaction：第 7 次提交雪球吸收 L4（7 行）"       $LOG/lab04-uc.log "\|\s+4 \|\s+[0-9]+ \|\s+7 \|\s+2000 \|\s+2006 \|"
 check "空间放大：uc_amp 全量合并到 L5（5 行）"                     $LOG/lab04-uc2.log "\|\s+5 \|\s+[0-9]+ \|\s+5 \|"
 check "文件数兜底：uc_num 连底座全量合并到 L5（2775 行）"           $LOG/lab04-uc2.log "\|\s+5 \|\s+[0-9]+ \|\s+2775 \|"
+run sql/lab04/compact-task.sql lab04-ct
+check "默认阈值：C 之后的合并全部重写（19 → 13）"               $LOG/lab04-ct.log "inputFiles=19, .*outputFiles=13"
+check "调小阈值：C 之后的合并只重写 A+C（18 → 12）"            $LOG/lab04-ct.log "inputFiles=18, .*outputFiles=12"
+# ct 表最后一次查询 $files：重写的 A+C、升级的 B、E、L4 的 D → 4 个不同的文件名前缀；ct_def 全部重写 → 2 个
+CT_PREFIX=$(awk '/Flink SQL> CREATE TABLE ct /{f=1} f' $LOG/lab04-ct.log | grep -E '^\|\s+[45] \|\s+[0-9a-f]{8}…' | tail -19 | awk -F'|' '{gsub(/ /,"",$3); split($3,a,"…"); print a[1]}' | sort -u | wc -l | tr -d ' ')
+[ "$CT_PREFIX" = "4" ] && { PASS=$((PASS + 1)); echo "  ✅ 升级的文件保留原名（ct 最终 4 个文件名前缀）"; } \
+  || { FAIL=$((FAIL + 1)); echo "  ❌ ct 最终应有 4 个文件名前缀，实际 $CT_PREFIX"; }
 
 echo "== 实验 5：缺依赖的 4 个报错 =="
 ./lab05.sh > $LOG/lab05.log 2>&1
