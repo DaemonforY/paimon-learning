@@ -60,6 +60,7 @@ cd labs && ./run.sh sql/lab01/step1-create-insert.sql
 | lab07 | `CommitLab.java`（`MAIN_CLASS=learning.paimon.CommitLab ./run.sh`） | 并发提交：抢快照号与重试、文件删除冲突、提交幂等 | 05 |
 | lab08 | `sql/lab08/`、`jdb/s2-6-read-path.txt` | 读路径：直接读 vs 合并读、过滤下推、COUNT(*) 下推 | 06 |
 | lab09 | `sql/lab09/`、`jdb/s2-7-deletion-vectors.txt` | 删除向量：写时标记、直接读 + 位图过滤、L0 不可见 | 06 |
+| lab10 | `sql/lab10/`、`jdb/s2-8-lookup-changelog.txt` | Lookup Changelog：强制上推 L0、lookup 旧值算 -U/+U、三种升级策略、row-deduplicate | 07 |
 
 实验记录见 `notes/`。
 

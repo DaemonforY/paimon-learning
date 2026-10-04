@@ -1,0 +1,29 @@
+# S2 第 8 讲：Lookup Changelog（配合 sql/lab10/lookup-changelog.sql；行号基于 d15d250cf）
+# 每次提交前强制把 L0 合并上去（Universal 没选中时 forcePickL0）
+stop at org.apache.paimon.mergetree.compact.ForceUpLevel0Compaction:57
+  print runs.size()
+# 每个 key：拿到高层旧值（before）之后、计算 after 之前
+stop at org.apache.paimon.mergetree.compact.LookupChangelogMergeFunctionWrapper:137
+  print mergeFunction.key().getInt(0)
+  print highLevel
+  print containLevel0
+# 产生 changelog：before / after
+stop at org.apache.paimon.mergetree.compact.LookupChangelogMergeFunctionWrapper:149
+  print before
+  print after.valueKind()
+  print after.value().getString(1)
+  print after.value().getLong(1)
+# lookup 第一次访问某个文件时，在本地建 lookup 文件
+stop at org.apache.paimon.mergetree.LookupLevels:206
+  print file.fileName()
+  print file.level()
+# L0 文件升级：三种策略
+stop at org.apache.paimon.mergetree.compact.LookupMergeTreeCompactRewriter:160
+  print outputLevel
+  print file.fileName()
+stop at org.apache.paimon.mergetree.compact.LookupMergeTreeCompactRewriter:166
+  print outputLevel
+  print file.fileName()
+stop at org.apache.paimon.mergetree.compact.LookupMergeTreeCompactRewriter:172
+  print outputLevel
+  print file.fileName()

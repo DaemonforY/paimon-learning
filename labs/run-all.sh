@@ -182,8 +182,20 @@ check "DV 表 COUNT(*) 下推"                                    $LOG/lab09.log
 check "DV 表 L0 在合并前不可见（0 行）"                         $LOG/lab09.log "^\|\s+0 \|$"
 check "merge-on-read / 合并后可见（2 行）"                     $LOG/lab09.log "^\|\s+2 \|$"
 
+echo "== 实验 10：Lookup Changelog =="
+run sql/lab10/lookup-changelog.sql lab10
+check "none 表：3 个 APPEND 快照，没有合并"                     $LOG/lab10.log "\|\s+3 \|\s+APPEND \|\s+6 \|\s+1 \|\s+<NULL> \|"
+check "lookup 表第一次写就到 L5"                                $LOG/lab10.log "\|\s+5 \|\s+3 \|\s+\[1\] \|\s+\[3\] \|"
+check "lookup 表第 ② 步 COMPACT 快照带 4 条 changelog"          $LOG/lab10.log "\|\s+4 \|\s+COMPACT \|\s+5 \|\s+0 \|\s+4 \|"
+check "值没变的 key 2 也产出 -U/+U"                              $LOG/lab10.log "\|\s+\+U \|\s+2 \|\s+b \|"
+check "删除记录升到 L3（未到最高层，不丢弃）"                   $LOG/lab10.log "\|\s+3 \|\s+1 \|\s+\[3\] \|\s+\[3\] \|"
+DEDUP_ROWS=$(awk '/cl_dedup\$audit_log/{f=1} f && /rows? in set/{print $1; exit}' $LOG/lab10.log)
+[ "$DEDUP_ROWS" = "2" ] && { PASS=$((PASS + 1)); echo "  ✅ row-deduplicate：第 ② 步只剩 2 条 changelog"; } \
+  || { FAIL=$((FAIL + 1)); echo "  ❌ row-deduplicate 第 ② 步应为 2 条 changelog，实际：${DEDUP_ROWS}"; }
+check "aggregation 表：-U 10 / +U 15"                            $LOG/lab10.log "\|\s+\+U \|\s+1 \|\s+15 \|"
+
 echo "== 截图安全：输出中不出现本机绝对路径 =="
-LEAKS=$(grep -lE "/Users/|/home/[a-z]" $LOG/lab0*.log 2>/dev/null | xargs -n1 basename 2>/dev/null | paste -sd, -)
+LEAKS=$(grep -lE "/Users/|/home/[a-z]" $LOG/lab*.log 2>/dev/null | xargs -n1 basename 2>/dev/null | paste -sd, -)
 [ -z "$LEAKS" ] && { PASS=$((PASS + 1)); echo "  ✅ 所有实验日志中都没有本机绝对路径"; } \
   || { FAIL=$((FAIL + 1)); echo "  ❌ 以下日志含本机绝对路径：$LEAKS"; }
 

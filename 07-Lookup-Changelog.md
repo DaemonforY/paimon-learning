@@ -17,7 +17,7 @@
 
 保证在同一个 checkpoint 内完成：
 - `ForceUpLevel0Compaction`：Universal 没选中也 `forcePickL0()`。默认 `lookup-compact = RADICAL` 每次都强制；`GENTLE` 每 `lookup-compact.max-interval` 次才强制。
-- `lookup-wait`（默认 true）：`MergeTreeCompactManager.compactNotCompleted()` 中 `needLookup && L0 非空` 视为未完成，`prepareCommit` 会等它。所以 checkpoint 提交时数据文件与 changelog 文件一起提交。
+- `lookup-wait`（默认 true）：`CoreOptions.prepareCommitWaitCompaction()` = 需要 lookup 且 `lookup-wait`（第 4616~4622 行），Flink sink 把它作为每次 `prepareCommit` 的 `waitCompaction`（`StoreSinkWrite.java:146`），`MergeTreeWriter.prepareCommit` 据此阻塞等待这次合并（`trySyncLatestCompaction(true)`）。所以 checkpoint 提交时数据文件与 changelog 文件一起提交。另：`MergeTreeCompactManager.compactNotCompleted()` 里的 `needLookup && L0 非空`（第 290~295 行）用于判断写入器能否被清理（`AbstractFileStoreWrite` 第 345~356 行），不是 `lookup-wait` 的生效位置。
 
 ## 2. 哪些合并产 changelog
 
