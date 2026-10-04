@@ -27,7 +27,7 @@
 1. `Run → Edit Configurations… → + → Remote JVM Debug`
 2. Name：`paimon-lab-5005`
 3. Debugger mode：`Attach to remote JVM`；Host：`localhost`；Port：`5005`
-4. Use module classpath：选 `paimon-flink-1.20`（让 Flink 模块的类也能对上源码）
+4. Use module classpath：选 `paimon-flink-2.2`（让 Flink 模块的类也能对上源码；用 `FLINK_VERSION=1.20.1` 运行时选 `paimon-flink-1.20`）
 5. 保存
 
 ## 2. 每次调试的步骤

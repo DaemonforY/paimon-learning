@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # 冒烟测试：在一个全新的 warehouse 里依次运行全部实验，并断言实验记录（notes/）中的关键结论。
-# 用法：./run-all.sh            （默认 Paimon 2.0.0）
+# 用法：./run-all.sh            （默认 Paimon 2.0.0 + Flink 2.2.0）
+#       FLINK_VERSION=1.20.1 ./run-all.sh   （对照 Flink 1.20 的结果）
 #       PAIMON_VERSION=2.2-SNAPSHOT ./run-all.sh
 # 全部通过时退出码为 0。耗时约 12~15 分钟（实验 3 含流式作业）。
 set -uo pipefail
@@ -26,7 +27,7 @@ run() {   # run <sql> <日志名>
   ./run.sh "$1" > "$LOG/$2.log" 2>&1 || echo "  ⚠️  $1 退出码非 0，见 $LOG/$2.log"
 }
 
-echo "Paimon 版本：${PAIMON_VERSION:-2.0.0}　warehouse：$WAREHOUSE"
+echo "Paimon 版本：${PAIMON_VERSION:-2.0.0}　Flink 版本：${FLINK_VERSION:-2.2.0}　warehouse：$WAREHOUSE"
 build_once
 
 echo "== 实验 1：建表、更新删除、系统表、合并 =="
@@ -146,7 +147,7 @@ cp logs/lab05-[0-9].log $LOG/ 2>/dev/null
 check "缺 shaded hadoop：INSERT 报 hadoop Configuration"      $LOG/lab05.log "ClassNotFoundException: org.apache.hadoop.conf.Configuration"
 check "缺 log4j-1.2-api：INSERT 报 org.apache.log4j.Level"    $LOG/lab05.log "ClassNotFoundException: org.apache.log4j.Level"
 check "缺 connector-files：SELECT 报 SingleThreadMultiplexSourceReaderBase" $LOG/lab05.log "ClassNotFoundException: org.apache.flink.connector.base.source.reader.SingleThreadMultiplexSourceReaderBase"
-check "只补 connector-base：SELECT 报 BulkFormat\$RecordIterator" $LOG/lab05.log "ClassNotFoundException: org.apache.flink.connector.file.src.reader.BulkFormat"
+check "只补 connector-base：SELECT 报 BulkFormat\$RecordIterator" $LOG/lab05.log "(ClassNotFoundException: org\.apache\.flink\.connector\.file\.src\.reader\.|NoClassDefFoundError: org/apache/flink/connector/file/src/reader/)BulkFormat"
 check "依赖齐全（不含 connector-base）：读写成功"              $LOG/lab05.log "场景 5.*退出码 0"
 
 echo "== 实验 6：Schema 演进 =="
@@ -169,15 +170,15 @@ echo "== 实验 8：读路径 =="
 run sql/lab08/read-path.sql lab08
 check "合并读结果正确：r_overlap 最新值 b 100 行、a 50 行"     $LOG/lab08.log "\|\s+a \|\s+50 \|"
 check "删除在读时生效：r_delete 剩 99 行"                     $LOG/lab08.log "\|\s+a \|\s+99 \|"
-check "全量合并后 COUNT(*) 下推为元数据计数"                   $LOG/lab08.log "r_compact, project=\[k\], aggregates=\[grouping=\[\], aggFunctions=\[Count1AggFunction\(\)\]\]"
-check "重叠的表 COUNT(*) 不能下推"                             $LOG/lab08.log "r_overlap, project=\[k\]\]\], fields=\[k\]"
+check "全量合并后 COUNT(*) 下推为元数据计数"                   $LOG/lab08.log "r_compact, (project=\[k\], )?aggregates=\[grouping=\[\], aggFunctions=\[Count1AggFunction\(\)\]\]"
+check "重叠的表 COUNT(*) 不能下推"                             $LOG/lab08.log "r_overlap(, project=\[k\])?\]\], fields=\[k"
 check "value 过滤不会读到旧版本（Empty set）"                  $LOG/lab08.log "^Empty set"
 
 echo "== 实验 9：删除向量 =="
 run sql/lab09/deletion-vectors.sql lab09
 check "删除向量表结果与默认表一致（a 89 行）"                  $LOG/lab09.log "\|\s+a \|\s+89 \|"
 check "删除一行后 DV 索引文件 32 字节"                         $LOG/lab09.log "\|\s+DELETION_VECTORS \|\s+1 \|\s+32 \|"
-check "DV 表 COUNT(*) 下推"                                    $LOG/lab09.log "dv_on, project=\[k\], aggregates="
+check "DV 表 COUNT(*) 下推"                                    $LOG/lab09.log "dv_on, (project=\[k\], )?aggregates="
 check "DV 表 L0 在合并前不可见（0 行）"                         $LOG/lab09.log "^\|\s+0 \|$"
 check "merge-on-read / 合并后可见（2 行）"                     $LOG/lab09.log "^\|\s+2 \|$"
 

@@ -10,10 +10,13 @@
     <version>1.0</version>
 
     <properties>
-        <maven.compiler.source>8</maven.compiler.source>
-        <maven.compiler.target>8</maven.compiler.target>
+        <!-- Flink 2.x 的 jar 是 Java 11 字节码，所以这里也按 11 编译 -->
+        <maven.compiler.release>11</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <flink.version>1.20.1</flink.version>
+        <!-- 默认 Flink 2.2.0 + paimon-flink-2.2（Paimon 正式支持的组合）。
+             对照旧结果时用 -Dflink.version=1.20.1 -Dpaimon.flink.module=1.20 -->
+        <flink.version>2.2.0</flink.version>
+        <paimon.flink.module>2.2</paimon.flink.module>
         <!-- 默认使用 Maven Central 正式版；对照源码调试时用 -Dpaimon.version=2.2-SNAPSHOT 等本地编译版本 -->
         <paimon.version>2.0.0</paimon.version>
     </properties>
@@ -21,7 +24,7 @@
     <dependencies>
         <dependency>
             <groupId>org.apache.paimon</groupId>
-            <artifactId>paimon-flink-1.20</artifactId>
+            <artifactId>paimon-flink-${paimon.flink.module}</artifactId>
             <version>${paimon.version}</version>
         </dependency>
         <dependency>

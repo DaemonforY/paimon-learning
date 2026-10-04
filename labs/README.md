@@ -6,7 +6,8 @@
 
 - JDK 11 或 17（macOS 会自动查找；其它系统请设置 `JAVA_HOME`）
 - Maven ≥ 3.6.3
-- 默认 Paimon 2.0.0（Maven Central 正式版）+ Flink 1.20.1，首次运行自动下载依赖
+- 默认 Paimon 2.0.0（Maven Central 正式版）+ Flink 2.2.0（`paimon-flink-2.2`，Paimon 正式支持的组合），首次运行自动下载依赖
+- 要对照 Flink 1.20 的旧结果：`FLINK_VERSION=1.20.1 ./run.sh ...`（自动改用 `paimon-flink-1.20`）
 
 ## 运行
 
@@ -64,8 +65,8 @@ cd labs && ./run.sh sql/lab01/step1-create-insert.sql
 
 ## 在 IDEA 中对照源码调试
 
-1. 克隆 Apache Paimon 源码并切到教程基线：`git checkout d15d250cf`，按 [01 章](../01-环境搭建与源码编译.md) 编译安装（得到 `2.2-SNAPSHOT`）。
-2. 在 IDEA 中打开 Paimon 源码工程，新建 `Remote JVM Debug`（localhost:5005，module classpath 选 `paimon-flink-1.20`）。
+1. 克隆 Apache Paimon 源码并切到教程基线：`git checkout d15d250cf`，按 [01 章](../01-环境搭建与源码编译.md) 编译安装（得到 `2.2-SNAPSHOT`）。默认的 `-Pflink1` 只装 Flink 1.x 模块；配 Flink 2.2 调试还要再装一次 Flink 2 模块：`mvn install -DskipTests -Pflink2 -pl paimon-flink/paimon-flink-2.2 -am`。
+2. 在 IDEA 中打开 Paimon 源码工程，新建 `Remote JVM Debug`（localhost:5005，module classpath 选 `paimon-flink-2.2`；用 `FLINK_VERSION=1.20.1` 时选 `paimon-flink-1.20`）。
 3. 启动：
 
 ```bash

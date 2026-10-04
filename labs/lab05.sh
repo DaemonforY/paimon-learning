@@ -10,7 +10,7 @@ build_once
 # 每个场景都会清空 warehouse，所以固定用独立目录，不复用调用方（如 run-all.sh）的 WAREHOUSE
 export WAREHOUSE=target/lab05-warehouse
 
-FLINK_VERSION=1.20.1
+FLINK_VERSION=${FLINK_VERSION:-2.2.0}
 MVN_SETTINGS=()
 [ "${MAVEN_MIRROR:-}" = "aliyun" ] && MVN_SETTINGS=(-s maven-settings-aliyun.xml)
 

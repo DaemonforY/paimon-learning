@@ -1,6 +1,6 @@
 # 实验 5 记录：嵌入式运行 Paimon 时缺依赖的 4 个报错
 
-日期：2026-10-02　|　对应教程 01 章　|　版本：Paimon 2.0.0 + Flink 1.20.1
+日期：2026-10-02　|　对应教程 01 章　|　版本：Paimon 2.0.0 + Flink 1.20.1；2026-10-04 在 Flink 2.2.0 上重跑，差异见文末
 
 运行：
 ```bash
@@ -39,6 +39,16 @@ cd labs && ./lab05.sh
 | log4j2（含 `log4j-1.2-api`） | ✅ |
 | `flink-connector-files`（含 connector-base 的类） | ✅ |
 | Hadoop | ❌ —— 生产部署也要自己提供：放入 shaded Hadoop jar，或设置 `HADOOP_CLASSPATH` |
+
+## Flink 2.2.0 重跑（2026-10-04）
+
+结论不变，只有一处报错类型不同：
+
+| 场景 | Flink 1.20.1 | Flink 2.2.0 |
+|---|---|---|
+| 4 | `ClassNotFoundException: org.apache.flink.connector.file.src.reader.BulkFormat$RecordIterator` | `NoClassDefFoundError: org/apache/flink/connector/file/src/reader/BulkFormat$RecordIterator`（日志里没有 `ClassNotFoundException`） |
+
+缺的是同一个类。`flink-connector-files-2.2.0.jar` 同样 shade 了 connector-base（`org/apache/flink/connector/base/` 下 108 个条目，1.20.1 是 107 个），场景 5 依然只需要它一个。上面"和 Flink 发行版的关系"一节查的是 1.20.1 的 `bin.xml`，2.2.0 未单独核对。
 
 ## 思考题
 1. 为什么场景 1、2 失败在 INSERT，而场景 3、4 失败在 SELECT？

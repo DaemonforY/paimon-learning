@@ -5,6 +5,7 @@
 # 可选环境变量：
 #   PAIMON_VERSION  Paimon 版本，默认 2.0.0（Maven Central 正式版）。
 #                   要对照源码调试时，设为你本地编译安装的版本，例如 2.2-SNAPSHOT。
+#   FLINK_VERSION   Flink 版本，默认 2.2.0（配 paimon-flink-2.2）；设为 1.20.1 时自动改用 paimon-flink-1.20。
 #   WAREHOUSE       Paimon warehouse 目录，默认 labs/warehouse
 #   JAVA_HOME       JDK 路径（JDK 11 或 17）；未设置时 macOS 上自动查找，其它系统使用 PATH 中的 java
 #   MAVEN_MIRROR    设为 aliyun 时使用阿里云 Maven 镜像（国内网络推荐）
@@ -17,6 +18,8 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 PAIMON_VERSION=${PAIMON_VERSION:-2.0.0}
+FLINK_VERSION=${FLINK_VERSION:-2.2.0}
+PAIMON_FLINK_MODULE=$(cut -d. -f1-2 <<< "$FLINK_VERSION")   # 2.2.0 → 2.2
 WAREHOUSE=${WAREHOUSE:-warehouse}
 
 # ---------- JDK ----------
@@ -36,11 +39,11 @@ if [ -z "$JAVA_MAJOR" ] || [ "$JAVA_MAJOR" -lt 11 ]; then
 fi
 
 # ---------- Maven ----------
-MVN_ARGS=(-q "-Dpaimon.version=$PAIMON_VERSION")
+MVN_ARGS=(-q "-Dpaimon.version=$PAIMON_VERSION" "-Dflink.version=$FLINK_VERSION" "-Dpaimon.flink.module=$PAIMON_FLINK_MODULE")
 if [ "${MAVEN_MIRROR:-}" = "aliyun" ]; then
   MVN_ARGS+=(-s maven-settings-aliyun.xml)
 fi
-CLASSPATH_FILE="target/classpath-$PAIMON_VERSION.txt"
+CLASSPATH_FILE="target/classpath-$PAIMON_VERSION-flink$FLINK_VERSION.txt"
 
 if [ "${SKIP_BUILD:-0}" != "1" ]; then
   if [ ! -f "$CLASSPATH_FILE" ] || [ pom.xml -nt "$CLASSPATH_FILE" ]; then
