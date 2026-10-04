@@ -56,6 +56,8 @@ cd labs && ./run.sh sql/lab01/step1-create-insert.sql
 | lab04 | `sql/lab04/`、`debug.sh` | IDEA 远程调试，断点追踪一次写入 | 02、05、08 |
 | lab05 | `sql/lab05/`、`lab05.sh` | 嵌入式运行缺依赖的 4 个典型报错（逐个去掉 jar 复现） | 01 |
 | lab06 | `sql/lab06/` | Schema 演进：字段 id 如何对应新旧文件里的列 | 02 |
+| lab07 | `CommitLab.java`（`MAIN_CLASS=learning.paimon.CommitLab ./run.sh`） | 并发提交：抢快照号与重试、文件删除冲突、提交幂等 | 05 |
+| lab08 | `sql/lab08/`、`jdb/s2-6-read-path.txt` | 读路径：直接读 vs 合并读、过滤下推、COUNT(*) 下推 | 06 |
 
 实验记录见 `notes/`。
 

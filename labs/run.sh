@@ -9,6 +9,7 @@
 #   JAVA_HOME       JDK 路径（JDK 11 或 17）；未设置时 macOS 上自动查找，其它系统使用 PATH 中的 java
 #   MAVEN_MIRROR    设为 aliyun 时使用阿里云 Maven 镜像（国内网络推荐）
 #   SKIP_BUILD=1    跳过 mvn（并发启动多个作业时由调用方先统一编译一次）
+#   MAIN_CLASS      运行的主类，默认 learning.paimon.SqlRunner（实验 7 用 learning.paimon.CommitLab）
 #   JAVA_PROPS      额外的 JVM 参数（stream.sh / debug.sh 用它传参）
 #   EXCLUDE_JARS    从 classpath 去掉文件名匹配该正则的 jar（实验 5 复现缺依赖报错）
 #   EXTRA_JARS      额外追加到 classpath 的 jar，冒号分隔（实验 5 用）
@@ -73,4 +74,4 @@ if [ -n "${EXTRA_JARS:-}" ]; then
 fi
 
 exec "$JAVA" $JDK_OPTS -Dwarehouse="$WAREHOUSE" ${JAVA_PROPS:-} \
-  -cp "target/classes:$CLASSPATH_VALUE" learning.paimon.SqlRunner "$@"
+  -cp "target/classes:$CLASSPATH_VALUE" "${MAIN_CLASS:-learning.paimon.SqlRunner}" "$@"

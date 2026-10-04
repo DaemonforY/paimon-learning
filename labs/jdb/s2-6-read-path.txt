@@ -1,0 +1,20 @@
+# S2 第 6 讲：读路径（配合 sql/lab08/read-path.sql；行号基于 d15d250cf）
+# 规划：bucket 内所有文件都不在 L0、没有删除记录，且都在同一层 → 整个 bucket 直接读
+stop at org.apache.paimon.table.source.MergeTreeSplitGenerator:75
+  print files.size()
+  print rawConvertible
+  print oneLevel
+# 规划：否则先切 section，再装箱成 split
+stop at org.apache.paimon.table.source.MergeTreeSplitGenerator:108
+  print sections.size()
+# 读取：直接读文件
+stop at org.apache.paimon.operation.RawFileSplitRead:169
+  print split.dataFiles().size()
+  print split.rawConvertible()
+# 读取：合并读
+stop at org.apache.paimon.operation.MergeFileSplitRead:253
+  print split.dataFiles().size()
+  print split.rawConvertible()
+# 合并读里的每个 section：多个 run 只下推主键过滤，单个 run 下推全部过滤
+stop at org.apache.paimon.operation.MergeFileSplitRead:339
+  print section.size()

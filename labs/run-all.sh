@@ -2,7 +2,7 @@
 # 冒烟测试：在一个全新的 warehouse 里依次运行全部实验，并断言实验记录（notes/）中的关键结论。
 # 用法：./run-all.sh            （默认 Paimon 2.0.0）
 #       PAIMON_VERSION=2.2-SNAPSHOT ./run-all.sh
-# 全部通过时退出码为 0。耗时约 12~14 分钟（实验 3 含流式作业）。
+# 全部通过时退出码为 0。耗时约 12~15 分钟（实验 3 含流式作业）。
 set -uo pipefail
 cd "$(dirname "$0")"
 source ./lab-common.sh
@@ -157,6 +157,21 @@ check "改名：order_status 读出旧数据"                        $LOG/lab06.
 check "删列后加回同名列：新 amount 拿到字段 id 4"            $LOG/lab06.log '"highestFieldId" : 4'
 check "删列后加回：旧数据不会回来（amount 全为 NULL）"       $LOG/lab06.log "\|\s+1 \|\s+CREATED \|\s+<NULL> \|\s+<NULL> \|"
 check "旧文件 schema_id=0，新文件 schema_id=1"               $LOG/lab06.log "\|\s+1 \|\s+1 \|\s+\[3\] \|\s+\[3\] \|"
+
+echo "== 实验 7：并发提交 =="
+MAIN_CLASS=learning.paimon.CommitLab ./run.sh > $LOG/lab07.log 2>&1 || echo "  ⚠️  CommitLab 退出码非 0，见 $LOG/lab07.log"
+check "并发 APPEND：60 次提交全部成功"                       $LOG/lab07.log "最新快照 id = 60"
+check "并发 APPEND：两个作业各 30 个快照、0 失败"             $LOG/lab07.log "失败的作业数 = 0"
+check "两个作业合并同一批文件：File deletion conflict"        $LOG/lab07.log "\[CONFLICT\] File deletion conflicts detected"
+check "重启后重复提交同一 identifier 被过滤"                  $LOG/lab07.log "filterAndCommit\(identifier 5\) 实际提交了 0 个"
+
+echo "== 实验 8：读路径 =="
+run sql/lab08/read-path.sql lab08
+check "合并读结果正确：r_overlap 最新值 b 100 行、a 50 行"     $LOG/lab08.log "\|\s+a \|\s+50 \|"
+check "删除在读时生效：r_delete 剩 99 行"                     $LOG/lab08.log "\|\s+a \|\s+99 \|"
+check "全量合并后 COUNT(*) 下推为元数据计数"                   $LOG/lab08.log "r_compact, project=\[k\], aggregates=\[grouping=\[\], aggFunctions=\[Count1AggFunction\(\)\]\]"
+check "重叠的表 COUNT(*) 不能下推"                             $LOG/lab08.log "r_overlap, project=\[k\]\]\], fields=\[k\]"
+check "value 过滤不会读到旧版本（Empty set）"                  $LOG/lab08.log "^Empty set"
 
 echo "== 截图安全：输出中不出现本机绝对路径 =="
 LEAKS=$(grep -lE "/Users/|/home/[a-z]" $LOG/lab0*.log 2>/dev/null | xargs -n1 basename 2>/dev/null | paste -sd, -)
