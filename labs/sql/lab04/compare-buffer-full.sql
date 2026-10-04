@@ -54,3 +54,4 @@ SELECT 'spill' AS t, COUNT(*) AS files, SUM(record_count) AS records FROM `wb_sp
 SELECT 'nospill' AS t, COUNT(*) AS files, SUM(record_count) AS records FROM `wb_nospill$files`;
 SELECT record_count, min_sequence_number, max_sequence_number FROM `wb_nospill$files` ORDER BY min_sequence_number;
 SELECT * FROM wb_nospill ORDER BY k;
+SELECT * FROM wb_spill ORDER BY k;
