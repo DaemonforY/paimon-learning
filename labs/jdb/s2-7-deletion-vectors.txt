@@ -1,0 +1,17 @@
+# S2 第 7 讲：删除向量（配合 sql/lab09/deletion-vectors.sql；行号基于 d15d250cf）
+# 写入 / 合并时：lookup 到旧版本，按“文件名 + 行号”标记删除
+stop at org.apache.paimon.mergetree.compact.LookupChangelogMergeFunctionWrapper:126
+  print fileName
+  print rowPosition
+# 规划：bucket 能否整体直接读
+stop at org.apache.paimon.table.source.MergeTreeSplitGenerator:75
+  print files.size()
+  print rawConvertible
+  print oneLevel
+  print deletionVectorsEnabled
+# 读取：直接读 + 删除向量
+stop at org.apache.paimon.operation.RawFileSplitRead:390
+  print deletionVector.getCardinality()
+# 读取：合并读
+stop at org.apache.paimon.operation.MergeFileSplitRead:253
+  print split.dataFiles().size()

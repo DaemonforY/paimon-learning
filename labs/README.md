@@ -58,6 +58,7 @@ cd labs && ./run.sh sql/lab01/step1-create-insert.sql
 | lab06 | `sql/lab06/` | Schema 演进：字段 id 如何对应新旧文件里的列 | 02 |
 | lab07 | `CommitLab.java`（`MAIN_CLASS=learning.paimon.CommitLab ./run.sh`） | 并发提交：抢快照号与重试、文件删除冲突、提交幂等 | 05 |
 | lab08 | `sql/lab08/`、`jdb/s2-6-read-path.txt` | 读路径：直接读 vs 合并读、过滤下推、COUNT(*) 下推 | 06 |
+| lab09 | `sql/lab09/`、`jdb/s2-7-deletion-vectors.txt` | 删除向量：写时标记、直接读 + 位图过滤、L0 不可见 | 06 |
 
 实验记录见 `notes/`。
 

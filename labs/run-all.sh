@@ -173,6 +173,14 @@ check "全量合并后 COUNT(*) 下推为元数据计数"                   $LOG
 check "重叠的表 COUNT(*) 不能下推"                             $LOG/lab08.log "r_overlap, project=\[k\]\]\], fields=\[k\]"
 check "value 过滤不会读到旧版本（Empty set）"                  $LOG/lab08.log "^Empty set"
 
+echo "== 实验 9：删除向量 =="
+run sql/lab09/deletion-vectors.sql lab09
+check "删除向量表结果与默认表一致（a 89 行）"                  $LOG/lab09.log "\|\s+a \|\s+89 \|"
+check "删除一行后 DV 索引文件 32 字节"                         $LOG/lab09.log "\|\s+DELETION_VECTORS \|\s+1 \|\s+32 \|"
+check "DV 表 COUNT(*) 下推"                                    $LOG/lab09.log "dv_on, project=\[k\], aggregates="
+check "DV 表 L0 在合并前不可见（0 行）"                         $LOG/lab09.log "^\|\s+0 \|$"
+check "merge-on-read / 合并后可见（2 行）"                     $LOG/lab09.log "^\|\s+2 \|$"
+
 echo "== 截图安全：输出中不出现本机绝对路径 =="
 LEAKS=$(grep -lE "/Users/|/home/[a-z]" $LOG/lab0*.log 2>/dev/null | xargs -n1 basename 2>/dev/null | paste -sd, -)
 [ -z "$LEAKS" ] && { PASS=$((PASS + 1)); echo "  ✅ 所有实验日志中都没有本机绝对路径"; } \
