@@ -61,6 +61,7 @@ cd labs && ./run.sh sql/lab01/step1-create-insert.sql
 | lab08 | `sql/lab08/`、`jdb/s2-6-read-path.txt` | 读路径：直接读 vs 合并读、过滤下推、COUNT(*) 下推 | 06 |
 | lab09 | `sql/lab09/`、`jdb/s2-7-deletion-vectors.txt` | 删除向量：写时标记、直接读 + 位图过滤、L0 不可见 | 06 |
 | lab10 | `sql/lab10/`、`jdb/s2-8-lookup-changelog.txt` | Lookup Changelog：强制上推 L0、lookup 旧值算 -U/+U、三种升级策略、row-deduplicate | 07 |
+| lab11 | `SinkLab.java`（`MAIN_CLASS=learning.paimon.SinkLab ./run.sh`）、`jdb/s2-9-flink-sink.txt` | Flink 流式写入两阶段提交：identifier = checkpoint id、不开 checkpoint 不提交、故障恢复不重不丢 | 08 |
 
 实验记录见 `notes/`。
 

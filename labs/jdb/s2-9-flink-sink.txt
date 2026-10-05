@@ -1,0 +1,26 @@
+# S2 第 9 讲：Flink 写入的两阶段提交（配合 SinkLab failover；行号基于 d15d250cf）
+# 运行：PAIMON_VERSION=2.2-SNAPSHOT MAIN_CLASS=learning.paimon.SinkLab ./jdb-stacks.sh failover jdb/s2-9-flink-sink.txt 80
+# 第一阶段：barrier 之前，writer 把这个 checkpoint 的 committable 发给 committer
+stop at org.apache.paimon.flink.sink.PrepareCommitOperator:95
+  print checkpointId
+# committer 做 checkpoint：待提交内容存进状态
+stop at org.apache.paimon.flink.sink.CommitterOperator:173
+  print committablesPerCheckpoint.keySet()
+# 第二阶段：checkpoint 完成后提交
+stop at org.apache.paimon.flink.sink.CommitterOperator:198
+  print checkpointId
+# 启动 / 恢复：commitUser 从状态读回
+stop at org.apache.paimon.flink.sink.CommitterOperator:133
+  print commitUser
+  print context.isRestored()
+# 恢复：状态里待提交的内容，交给 filterAndCommit
+stop at org.apache.paimon.flink.sink.RestoreCommittableStateManager:73
+  print restored.size()
+# 过滤掉已提交的，剩下的才真正提交
+stop at org.apache.paimon.table.sink.TableCommitImpl:328
+  print sortedCommittables.size()
+  print sortedCommittables.get(0).identifier()
+  print retryCommittables.size()
+# 真的补提交了，才故意失败一次
+stop at org.apache.paimon.flink.sink.RestoreAndFailCommittableStateManager:52
+  print numCommitted

@@ -95,7 +95,9 @@ commitUser = StateUtils.getSingleValueFromState(context, "commit_user_state", St
 
 ## 4. 故障恢复
 
-### committer：`RestoreAndFailCommittableStateManager`
+### committer：`RestoreAndFailCommittableStateManager` / `RestoreCommittableStateManager`
+
+两种状态管理器的区别只在“补提交之后要不要故意失败”。`FlinkWriteSink` 默认用 `RestoreAndFail…`（`FlinkWriteSink.java:65-70`）；**无桶 Append 表（`RowAppendTableSink.java:81-82`）和 postpone bucket 表用 `RestoreCommittableStateManager`，只补提交、不故意失败**（`FlinkWriteSink.java:87-93`，`RestoreCommittableStateManager.java:76-79`）。实验 11（`labs` 的 `SinkLab`）在无桶 Append 表上实测：恢复时补提交了 1 个 committable，作业没有再重启。以下流程针对 `RestoreAndFail…`：
 ```
 从状态恢复未提交的 ManifestCommittable
   → committer.filterAndCommit(committables, checkAppendFiles = true)
@@ -113,7 +115,7 @@ writer 不在状态里存数据，重启后 `FileSystemWriteRestore.restoreFiles
 | 故障时刻 | 结果 |
 |---|---|
 | checkpoint N 完成前 | N 不在 checkpoint 中，source 从 N-1 重放，N 的文件成孤儿。**不重不丢** |
-| checkpoint N 完成后、提交前 | 状态里有 N，重启时 filterAndCommit 补提交，再故意失败一次刷新 writer |
+| checkpoint N 完成后、提交前 | 状态里有 N，重启时 filterAndCommit 补提交；`RestoreAndFail…` 再故意失败一次刷新 writer（无桶 Append 表不会） |
 | 提交过程中（不确定成败） | filterCommitted 按 identifier 判断：提交过就跳过，没提交就补 |
 | **从很旧的 savepoint 恢复** | 引用的文件可能已被合并、过期 → 冲突或文件缺失 |
 

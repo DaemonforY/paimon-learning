@@ -194,6 +194,16 @@ DEDUP_ROWS=$(awk '/cl_dedup\$audit_log/{f=1} f && /rows? in set/{print $1; exit}
   || { FAIL=$((FAIL + 1)); echo "  ❌ row-deduplicate 第 ② 步应为 2 条 changelog，实际：${DEDUP_ROWS}"; }
 check "aggregation 表：-U 10 / +U 15"                            $LOG/lab10.log "\|\s+\+U \|\s+1 \|\s+15 \|"
 
+echo "== 实验 11：Flink 写入两阶段提交（约 1 分钟） =="
+MAIN_CLASS=learning.paimon.SinkLab ./run.sh all > $LOG/lab11.log 2>&1 || echo "  ⚠️  SinkLab 退出码非 0，见 $LOG/lab11.log"
+check "checkpoint 1 完成后提交 identifier 1 的快照"              $LOG/lab11.log "Successfully commit snapshot 1 to table sk_ckpt by user \S+ with identifier 1 and kind APPEND"
+check "作业结束的提交 identifier = Long.MAX_VALUE"               $LOG/lab11.log "to table sk_ckpt by user \S+ with identifier 9223372036854775807"
+NOCKPT=$(awk '/sk_nockpt\$snapshots/{f=1} f && /^\|[ ]+[0-9]+ \|$/{print $2; exit}' $LOG/lab11.log)
+[ "$NOCKPT" = "0" ] && { PASS=$((PASS + 1)); echo "  ✅ 不开 checkpoint 的无界作业：0 个快照"; } \
+  || { FAIL=$((FAIL + 1)); echo "  ❌ 不开 checkpoint 应为 0 个快照，实际：${NOCKPT}"; }
+check "故障恢复后 200 行、200 个不同 id"                         $LOG/lab11.log "\|\s+200 \|\s+200 \|\s+1 \|\s+200 \|"
+check "故障恢复后没有孤儿文件"                                   $LOG/lab11.log "孤儿文件：0"
+
 echo "== 截图安全：输出中不出现本机绝对路径 =="
 LEAKS=$(grep -lE "/Users/|/home/[a-z]" $LOG/lab*.log 2>/dev/null | xargs -n1 basename 2>/dev/null | paste -sd, -)
 [ -z "$LEAKS" ] && { PASS=$((PASS + 1)); echo "  ✅ 所有实验日志中都没有本机绝对路径"; } \
