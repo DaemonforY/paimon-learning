@@ -5,6 +5,8 @@
 labs/warehouse/
 labs/target/
 labs/logs/
+labs/warehouse-spark/
+labs/spark/target/
 
 # IDE / 系统
 .idea/

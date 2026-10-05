@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- Paimon 学习实验：在本地嵌入式运行 Spark SQL（local 模式）读写 Paimon。和 Flink 的实验工程分开，避免依赖冲突 -->
+    <groupId>learning.paimon</groupId>
+    <artifactId>paimon-labs-spark</artifactId>
+    <version>1.0</version>
+
+    <properties>
+        <maven.compiler.release>11</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!-- 与 Paimon 源码 paimon-spark-3.5 模块使用的 Spark 版本一致 -->
+        <spark.version>3.5.8</spark.version>
+        <paimon.version>2.0.0</paimon.version>
+    </properties>
+
+    <dependencies>
+        <!-- Spark 3.5 用 slf4j 2.x + log4j-slf4j2-impl；显式声明，避免其它依赖带来的 slf4j 1.x API 排在前面导致日志失效 -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>2.0.7</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-sql_2.12</artifactId>
+            <version>${spark.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.paimon</groupId>
+            <artifactId>paimon-spark-3.5_2.12</artifactId>
+            <version>${paimon.version}</version>
+        </dependency>
+    </dependencies>
+</project>

@@ -214,6 +214,15 @@ COMPACT_READS=$(awk '/写入：CALL sys.compact/{f=1; next} /写入：DELETE/{f=
   || { FAIL=$((FAIL + 1)); echo "  ❌ COMPACT 快照后不应有输出，实际 ${COMPACT_READS} 行"; }
 check "配 consumer-id 时换成 MonitorSource"                      $LOG/lab12.log "算子：Source: paimon.default.src_p-Monitor"
 
+echo "== 实验 13：Spark MERGE INTO 的三条路径（约 1 分钟，首次运行需下载 Spark 依赖） =="
+WAREHOUSE=$WAREHOUSE-spark ./spark.sh sql/lab13/merge-into.sql > $LOG/lab13.log 2>&1 || echo "  ⚠️  spark.sh 退出码非 0，见 $LOG/lab13.log"
+check "默认三张表都走 V1：MergeIntoPaimonTable"                  $LOG/lab13.log "^Execute MergeIntoPaimonTable"
+check "主键表 MERGE：APPEND 提交，只多 3 条记录"                  $LOG/lab13.log "^\|3 +\|APPEND +\|9 +\|3 +\|"
+check "Append 表 CoW：OVERWRITE 提交，总数不变"                   $LOG/lab13.log "^\|3 +\|OVERWRITE +\|6 +\|0 +\|"
+check "Append + DV：OVERWRITE 提交，只写 2 条新记录"              $LOG/lab13.log "^\|3 +\|OVERWRITE +\|8 +\|2 +\|"
+check "打开 use-v2-write：ReplaceData（Spark 原生 V2）"           $LOG/lab13.log "^ReplaceData PaimonWrite"
+check "一行 target 匹配多行 source：报错"                         $LOG/lab13.log "EXPECTED ERROR.*match more than one source rows"
+
 echo "== 截图安全：输出中不出现本机绝对路径 =="
 LEAKS=$(grep -lE "/Users/|/home/[a-z]" $LOG/lab*.log 2>/dev/null | xargs -n1 basename 2>/dev/null | paste -sd, -)
 [ -z "$LEAKS" ] && { PASS=$((PASS + 1)); echo "  ✅ 所有实验日志中都没有本机绝对路径"; } \

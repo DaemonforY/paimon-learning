@@ -1,6 +1,6 @@
 # Paimon 实验项目（labs）
 
-在本地**嵌入式运行 Flink SQL**（Flink MiniCluster）读写 Paimon：不需要安装 Flink 集群；可以在 IDEA 里直接对 Paimon 源码下断点。
+在本地**嵌入式运行 Flink SQL**（Flink MiniCluster）读写 Paimon：不需要安装 Flink 集群；可以在 IDEA 里直接对 Paimon 源码下断点。Spark 相关的实验在独立的 `spark/` 子工程里（Spark 3.5.8 本地模式），用 `spark.sh` 运行。
 
 ## 环境要求
 
@@ -22,6 +22,7 @@ cd labs && ./run.sh sql/lab01/step1-create-insert.sql
 | `debug.sh <sql>` | 调试模式：JVM 在 5005 端口等待 IDEA 连接，并行度 1、心跳超时 1 小时 |
 | `jdb-stacks.sh <sql> <断点清单> [次数]` | 不开 IDEA：用 jdb 在断点处打印真实调用栈和变量到 `logs/stacks.log`（断点清单见 `jdb/`，缩进行为命中时执行的 `print` 等命令；需 `PAIMON_VERSION=2.2-SNAPSHOT` 以对齐行号） |
 | `lab03-a.sh` / `lab03-b.sh` | 实验 3 编排：后台流读 + 前台写入 |
+| `spark.sh <sql>` | 用 Spark SQL（`spark/` 子工程，Spark 3.5.8 + `paimon-spark-3.5`，`local[1]`）逐条执行 SQL 文件 |
 | `run-all.sh` | 冒烟测试：运行全部实验并断言关键结论 |
 | `lab05.sh` | 实验 5：依次去掉一个依赖，复现 4 个报错 |
 | `capture-lab01.sh` | 重跑实验 1 并把输出与目录快照留档到 `logs/` |
@@ -63,6 +64,7 @@ cd labs && ./run.sh sql/lab01/step1-create-insert.sql
 | lab10 | `sql/lab10/`、`jdb/s2-8-lookup-changelog.txt` | Lookup Changelog：强制上推 L0、lookup 旧值算 -U/+U、三种升级策略、row-deduplicate | 07 |
 | lab11 | `SinkLab.java`（`MAIN_CLASS=learning.paimon.SinkLab ./run.sh`）、`jdb/s2-9-flink-sink.txt` | Flink 流式写入两阶段提交：identifier = checkpoint id、不开 checkpoint 不提交、故障恢复不重不丢 | 08 |
 | lab12 | `SourceLab.java`（`MAIN_CLASS=learning.paimon.SourceLab ./run.sh`）、`jdb/s2-10-flink-source.txt` | Flink 流读：第一次规划读全量、逐快照追踪跳过 COMPACT、Enumerator / Reader 线程、consumer-id 换成 MonitorSource | 09 |
+| lab13 | `sql/lab13/`（`./spark.sh` 运行） | Spark MERGE INTO：主键表写变更、追加表 copy-on-write、追加表 + 删除向量；V1 / V2 路径与 APPEND / OVERWRITE 提交 | 10 |
 
 实验记录见 `notes/`。
 
