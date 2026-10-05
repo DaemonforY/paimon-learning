@@ -1,0 +1,26 @@
+# S2 第 10 讲：Flink 流读（配合 SourceLab read；行号基于 d15d250cf）
+# 运行：PAIMON_VERSION=2.2-SNAPSHOT MAIN_CLASS=learning.paimon.SourceLab ./jdb-stacks.sh read jdb/s2-10-flink-source.txt 60
+# 第一次规划：表里有快照之后，读最新快照的全量
+stop at org.apache.paimon.table.source.DataTableStreamScan:174
+  print result.plan().splits().size()
+  print nextSnapshotId
+# 逐快照追踪：这个快照要不要读
+stop at org.apache.paimon.table.source.DataTableStreamScan:229
+  print snapshot.id()
+  print snapshot.commitKind()
+  print followUpScanner.shouldScanSnapshot(snapshot)
+# Enumerator 拿到 plan，生成 split
+stop at org.apache.paimon.flink.source.ContinuousFileSplitEnumerator:291
+  print plan.splits().size()
+  print nextSnapshotId
+# 按 (分区, bucket) 选 subtask（read.shuffle-bucket-with-partition 默认 true，走第 370 行）
+stop at org.apache.paimon.flink.source.ContinuousFileSplitEnumerator:370
+  print bucketId
+  print parallelism
+  print org.apache.paimon.table.sink.ChannelComputer.select(split.partition(), bucketId, parallelism)
+# Reader 来要 split（拉模式）
+stop at org.apache.paimon.flink.source.ContinuousFileSplitEnumerator:178
+  print subtaskId
+# Reader 开始读一个 split
+stop at org.apache.paimon.flink.source.FileStoreSourceSplitReader:232
+  print nextSplit.splitId()

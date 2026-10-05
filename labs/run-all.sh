@@ -204,6 +204,16 @@ NOCKPT=$(awk '/sk_nockpt\$snapshots/{f=1} f && /^\|[ ]+[0-9]+ \|$/{print $2; exi
 check "故障恢复后 200 行、200 个不同 id"                         $LOG/lab11.log "\|\s+200 \|\s+200 \|\s+1 \|\s+200 \|"
 check "故障恢复后没有孤儿文件"                                   $LOG/lab11.log "孤儿文件：0"
 
+echo "== 实验 12：Flink 流读（约 1 分钟） =="
+MAIN_CLASS=learning.paimon.SourceLab ./run.sh all > $LOG/lab12.log 2>&1 || echo "  ⚠️  SourceLab 退出码非 0，见 $LOG/lab12.log"
+check "第一次规划读全量：+I[1, a]"                               $LOG/lab12.log "读到 \+I\[1, a\]"
+check "none 表更新：-U[1, a] / +U[1, A]"                         $LOG/lab12.log "读到 -U\[1, a\]"
+check "删除：-D[2, b]"                                           $LOG/lab12.log "读到 -D\[2, b\]"
+COMPACT_READS=$(awk '/写入：CALL sys.compact/{f=1; next} /写入：DELETE/{f=0} f && /读到/' $LOG/lab12.log | wc -l | tr -d ' ')
+[ "$COMPACT_READS" = "0" ] && { PASS=$((PASS + 1)); echo "  ✅ COMPACT 快照不产生流读输出"; } \
+  || { FAIL=$((FAIL + 1)); echo "  ❌ COMPACT 快照后不应有输出，实际 ${COMPACT_READS} 行"; }
+check "配 consumer-id 时换成 MonitorSource"                      $LOG/lab12.log "算子：Source: paimon.default.src_p-Monitor"
+
 echo "== 截图安全：输出中不出现本机绝对路径 =="
 LEAKS=$(grep -lE "/Users/|/home/[a-z]" $LOG/lab*.log 2>/dev/null | xargs -n1 basename 2>/dev/null | paste -sd, -)
 [ -z "$LEAKS" ] && { PASS=$((PASS + 1)); echo "  ✅ 所有实验日志中都没有本机绝对路径"; } \
