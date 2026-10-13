@@ -48,10 +48,10 @@ CLASSPATH_FILE="target/classpath-$PAIMON_VERSION-flink$FLINK_VERSION.txt"
 if [ "${SKIP_BUILD:-0}" != "1" ]; then
   if [ ! -f "$CLASSPATH_FILE" ] || [ pom.xml -nt "$CLASSPATH_FILE" ]; then
     # 先离线解析（依赖都已在本地仓库时最快），失败再在线下载
-    mvn -o "${MVN_ARGS[@]}" dependency:build-classpath -Dmdep.outputFile="$CLASSPATH_FILE" 2>/dev/null \
+    mvn -o "${MVN_ARGS[@]}" dependency:build-classpath -Dmdep.outputFile="$CLASSPATH_FILE" > /dev/null 2>&1 \
       || mvn "${MVN_ARGS[@]}" dependency:build-classpath -Dmdep.outputFile="$CLASSPATH_FILE"
   fi
-  mvn -o "${MVN_ARGS[@]}" compile 2>/dev/null || mvn "${MVN_ARGS[@]}" compile
+  mvn -o "${MVN_ARGS[@]}" compile > /dev/null 2>&1 || mvn "${MVN_ARGS[@]}" compile
 fi
 
 # ---------- 运行 ----------
@@ -76,5 +76,7 @@ if [ -n "${EXTRA_JARS:-}" ]; then
   echo "[run.sh] 已追加 jar：$(tr ":" "\n" <<< "$EXTRA_JARS" | xargs -n1 basename | paste -sd, -)"
 fi
 
-exec "$JAVA" $JDK_OPTS -Dwarehouse="$WAREHOUSE" ${JAVA_PROPS:-} \
+# paimon-core 的 tests jar（实验 14 的 REST 参考服务端）里带了 log4j2-test.properties（rootLogger = OFF），
+# log4j2 会优先加载它；这里显式指定用 labs 自己的 log4j2.properties
+exec "$JAVA" $JDK_OPTS -Dlog4j.configurationFile=log4j2.properties -Dwarehouse="$WAREHOUSE" ${JAVA_PROPS:-} \
   -cp "target/classes:$CLASSPATH_VALUE" "${MAIN_CLASS:-learning.paimon.SqlRunner}" "$@"

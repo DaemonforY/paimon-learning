@@ -56,6 +56,37 @@
             <artifactId>flink-connector-files</artifactId>
             <version>${flink.version}</version>
         </dependency>
+        <!-- 实验 14：REST Catalog 的参考服务端 RESTCatalogServer 在 paimon-core 的 tests jar 里，基于 okhttp 的 MockWebServer。
+             tests jar 只要它自己的类（Paimon 主体类已在 paimon-flink 的 bundle 里），所以排除传递依赖 -->
+        <dependency>
+            <groupId>org.apache.paimon</groupId>
+            <artifactId>paimon-core</artifactId>
+            <version>${paimon.version}</version>
+            <classifier>tests</classifier>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>mockwebserver</artifactId>
+            <version>4.12.0</version>
+        </dependency>
+        <!-- flink-shaded-hadoop-2-uber 里带了未 shade 的老版本 okio；把 okhttp / okio 3.x 声明为直接依赖并放在它前面，
+             保证 classpath 上先出现新版本（否则 MockWebServer 启动时报 NoSuchFieldError: Companion） -->
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>4.12.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.squareup.okio</groupId>
+            <artifactId>okio-jvm</artifactId>
+            <version>3.6.0</version>
+        </dependency>
         <!-- Paimon 在 Flink 中需要 Hadoop 类（生产部署同样要放这个 jar 到 flink/lib） -->
         <dependency>
             <groupId>org.apache.flink</groupId>

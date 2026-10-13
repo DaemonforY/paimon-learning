@@ -65,6 +65,7 @@ cd labs && ./run.sh sql/lab01/step1-create-insert.sql
 | lab11 | `SinkLab.java`（`MAIN_CLASS=learning.paimon.SinkLab ./run.sh`）、`jdb/s2-9-flink-sink.txt` | Flink 流式写入两阶段提交：identifier = checkpoint id、不开 checkpoint 不提交、故障恢复不重不丢 | 08 |
 | lab12 | `SourceLab.java`（`MAIN_CLASS=learning.paimon.SourceLab ./run.sh`）、`jdb/s2-10-flink-source.txt` | Flink 流读：第一次规划读全量、逐快照追踪跳过 COMPACT、Enumerator / Reader 线程、consumer-id 换成 MonitorSource | 09 |
 | lab13 | `sql/lab13/`（`./spark.sh` 运行） | Spark MERGE INTO：主键表写变更、追加表 copy-on-write、追加表 + 删除向量；V1 / V2 路径与 APPEND / OVERWRITE 提交 | 10 |
+| lab14 | `RestLab.java`（`MAIN_CLASS=learning.paimon.RestLab ./run.sh [flow|cas|uuid|token]`） | REST Catalog：请求序列、服务端 CAS、表 uuid 防删表重建、数据凭证下发（进程内参考服务端） | 11 |
 
 实验记录见 `notes/`。
 

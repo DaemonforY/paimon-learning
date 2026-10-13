@@ -223,6 +223,17 @@ check "Append + DV：OVERWRITE 提交，只写 2 条新记录"              $LOG
 check "打开 use-v2-write：ReplaceData（Spark 原生 V2）"           $LOG/lab13.log "^ReplaceData PaimonWrite"
 check "一行 target 匹配多行 source：报错"                         $LOG/lab13.log "EXPECTED ERROR.*match more than one source rows"
 
+echo "== 实验 14：REST Catalog（约 1 分钟） =="
+MAIN_CLASS=learning.paimon.RestLab ./run.sh all > $LOG/lab14.log 2>&1 || echo "  ⚠️  RestLab 退出码非 0，见 $LOG/lab14.log"
+MAIN_CLASS=learning.paimon.RestLab ./run.sh token > $LOG/lab14-token.log 2>&1 || echo "  ⚠️  RestLab token 退出码非 0，见 $LOG/lab14-token.log"
+check "客户端启动先拉服务端配置：GET /v1/config"                 $LOG/lab14.log "^         GET /v1/config$"
+check "写入经服务端提交：POST …/tables/orders/commit"             $LOG/lab14.log "POST /v1/paimon/databases/db1/tables/orders/commit"
+check "带过期 base 提交：服务端 CAS 返回 false"                    $LOG/lab14.log "commitSnapshot\(base = 快照 1 的 uuid\) 返回 false"
+check "CAS 失败后最新快照不变"                                    $LOG/lab14.log "提交被拒之后，最新快照仍是 2"
+check "删表重建后旧表对象提交：重试 10 次后失败"                    $LOG/lab14.log "Commit failed after .* with 10 retries"
+check "旧表对象提交的根因：表不存在（tableUuid 不符）"              $LOG/lab14.log "根因 NoSuchResourceException: Table db3.t does not exist"
+check "data-token：访问数据前先 GET …/token"                       $LOG/lab14-token.log "GET /v1/paimon/databases/db4/tables/t/token"
+
 echo "== 截图安全：输出中不出现本机绝对路径 =="
 LEAKS=$(grep -lE "/Users/|/home/[a-z]" $LOG/lab*.log 2>/dev/null | xargs -n1 basename 2>/dev/null | paste -sd, -)
 [ -z "$LEAKS" ] && { PASS=$((PASS + 1)); echo "  ✅ 所有实验日志中都没有本机绝对路径"; } \
